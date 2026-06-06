@@ -1,0 +1,7 @@
+.opencode/
+.DS_Store
+Thumbs.db
+*.log
+.env
+.vscode/
+.idea/
