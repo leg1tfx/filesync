@@ -1,4 +1,4 @@
-import { $, el, cacheDOM, renderFileList, showToast, closePreview, setupGlobalDrag, batchDelete, batchDownload, selectAll, updateBatchBar, updateQueueInfo, renderChatHistory, renderPeerListPanel } from './ui.js';
+import { $, el, cacheDOM, renderFileList, showToast, closePreview, setupGlobalDrag, batchDelete, batchDownload, selectAll, updateBatchBar, updateQueueInfo, renderChatHistory, renderPeerListPanel, updateArchiveCount, updateThemeLabels } from './ui.js';
 import { state, STORE } from './state.js';
 import { applyTheme, getPreferredTheme, toggleTheme, getShareLink, debounce, extIcon } from './utils.js';
 import { icon } from './icons.js';
@@ -7,13 +7,15 @@ import { createRoom, joinRoom, uploadFiles, downloadAll, leaveRoom, sendChat, ge
 
 cacheDOM();
 
-if (el.btnShowQr) el.btnShowQr.innerHTML = icon.camera;
+if (el.btnShowQr) el.btnShowQr.innerHTML = icon.qr;
 if (el.btnToggleChat) el.btnToggleChat.innerHTML = icon.messageCircle;
-if (el.btnSettings) el.btnSettings.innerHTML = icon.zap;
+if (el.btnSettings) el.btnSettings.innerHTML = icon.settings;
 if (el.searchIcon) el.searchIcon.innerHTML = icon.search;
 if (el.queueIcon) el.queueIcon.innerHTML = icon.clock;
 
 applyTheme(getPreferredTheme());
+updateThemeLabels();
+window.addEventListener('filesync:theme', () => { updateThemeLabels(); updateSettingsThemeBtn(); });
 $('#theme-toggle-home').addEventListener('click', toggleTheme);
 $('#theme-toggle-room').addEventListener('click', toggleTheme);
 
@@ -103,15 +105,13 @@ if (el.btnShowQr) {
 
 if (el.btnToggleChat) {
   el.btnToggleChat.addEventListener('click', () => {
-    const panel = el.chatPanel;
-    const isVisible = panel.style.display !== 'none';
-    panel.style.display = isVisible ? 'none' : 'flex';
-    if (!isVisible) {
+    el.chatPanel.classList.toggle('active');
+    if (el.chatPanel.classList.contains('active')) {
       renderChatHistory();
       el.chatInput.focus();
     }
   });
-  el.btnCloseChat.addEventListener('click', () => { el.chatPanel.style.display = 'none'; });
+  el.btnCloseChat.addEventListener('click', () => { el.chatPanel.classList.remove('active'); });
   el.btnChatSend.addEventListener('click', () => {
     const text = el.chatInput.value.trim();
     if (text) {
@@ -127,14 +127,13 @@ if (el.btnToggleChat) {
 }
 
 el.peerCount.addEventListener('click', () => {
-  const panel = el.peerListPanel;
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  if (panel.style.display === 'block') {
+  el.peerListPanel.classList.toggle('active');
+  if (el.peerListPanel.classList.contains('active')) {
     import('./ui.js').then(m => m.renderPeerListPanel());
   }
 });
 if (el.btnClosePeerList) {
-  el.btnClosePeerList.addEventListener('click', () => { el.peerListPanel.style.display = 'none'; });
+  el.btnClosePeerList.addEventListener('click', () => { el.peerListPanel.classList.remove('active'); });
 }
 
 el.btnSettings.addEventListener('click', () => {
@@ -145,7 +144,7 @@ el.btnSettings.addEventListener('click', () => {
 
 function updateSettingsThemeBtn() {
   const isDark = document.body.classList.contains('dark');
-  el.settingsThemeToggle.innerHTML = (isDark ? icon.sun : icon.moon) + ' <span>' + (isDark ? 'Light' : 'Dark') + '</span>';
+  el.settingsThemeToggle.innerHTML = '<span class="theme-toggle__dot"></span><span>' + (isDark ? 'Night' : 'Day') + '</span>';
 }
 
 el.settingsThemeToggle.addEventListener('click', () => {

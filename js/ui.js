@@ -37,6 +37,7 @@ export function cacheDOM() {
   el.speedDisplay = $('#speed-display');
   el.previewModal = $('#preview-modal');
   el.previewContent = $('#preview-content');
+  el.previewTitle = $('#preview-title');
   el.previewClose = $('#preview-close');
   el.qrPanel = $('#qr-panel');
   el.btnShowQr = $('#btn-show-qr');
@@ -60,6 +61,13 @@ export function cacheDOM() {
   el.settingsThemeToggle = $('#settings-theme-toggle');
   el.settingsPassword = $('#settings-password');
   el.settingsSavePassword = $('#settings-save-password');
+  el.themeLabelHome = $('#theme-label-home');
+  el.themeLabelRoom = $('#theme-label-room');
+  el.settingsThemeLabel = $('#settings-theme-label');
+  el.archiveCount = $('#archive-count');
+  el.selfDestructModal = $('#self-destruct-modal');
+  el.sdOptions = $('#sd-options');
+  el.sdClose = $('#sd-close');
 }
 
 export function showHome() {
@@ -88,14 +96,22 @@ export function showToast(msg, duration) {
   el.toast._t = setTimeout(() => el.toast.classList.remove('show'), duration || 2500);
 }
 
+export function updateThemeLabels() {
+  const isDark = document.body.classList.contains('dark');
+  const label = isDark ? 'Night' : 'Day';
+  if (el.themeLabelHome) el.themeLabelHome.textContent = label;
+  if (el.themeLabelRoom) el.themeLabelRoom.textContent = label;
+  if (el.settingsThemeLabel) el.settingsThemeLabel.textContent = label;
+}
+
 export function updateFileUI(fileId, status, progress) {
   const card = document.querySelector(`[data-id="${fileId}"]`);
   if (!card) return;
   const badge = card.querySelector('.badge');
-  const bar = card.querySelector('.progress-bar');
+  const bar = card.querySelector('.file-row__progress-bar');
   const speedEl = card.querySelector('.speed-indicator');
   if (badge) {
-    const labels = { synced: 'Synced', pending: 'Pending', transfer: 'Syncing...', upload: 'Uploading...' };
+    const labels = { synced: 'Synced', pending: 'Pending', transfer: 'Syncing', upload: 'Uploading' };
     badge.textContent = labels[status] || status;
     const cls = { synced: 'badge-synced', pending: 'badge-pending', transfer: 'badge-transfer', upload: 'badge-upload' };
     badge.className = 'badge ' + (cls[status] || 'badge-transfer');
@@ -109,7 +125,7 @@ export function updateFileUI(fileId, status, progress) {
 
 export function renderPeerList() {
   const count = state.isCreator ? state.conns.size : (state.conn ? 1 + state.peerIds.length : 0);
-  el.peerCount.textContent = count > 0 ? `${count} peer${count !== 1 ? 's' : ''} connected` : 'Waiting for peers...';
+  el.peerCount.textContent = count > 0 ? `${count} peer${count !== 1 ? 's' : ''} connected` : 'Waiting for peers';
 }
 
 export function renderPeerListPanel() {
@@ -118,15 +134,15 @@ export function renderPeerListPanel() {
     ? Array.from(state.conns.keys())
     : [state.conn ? state.conn.peer : null, ...state.peerIds].filter(Boolean);
   if (peers.length === 0) {
-    el.peerListContent.innerHTML = '<p style="font-size:0.85rem;color:var(--text-secondary)">No peers connected</p>';
+    el.peerListContent.innerHTML = '<p style="font-family:var(--serif);font-style:italic;color:var(--text-secondary);font-size:15px">No peers connected yet</p>';
     return;
   }
   el.peerListContent.innerHTML = peers.map(p => `
-    <div class="peer-list-item">
-      <span class="peer-dot"></span>
-      <span>${escapeHtml(p)}</span>
-      ${state.isCreator ? `<button class="btn btn-secondary btn-sm" onclick="import('./peer.js').then(m=>m.transferCreator('${p}'))" style="margin-left:8px;font-size:0.7rem">Handoff</button>` : ''}
-      <button class="btn btn-secondary btn-sm" onclick="import('./peer.js').then(m=>m.connectMesh('${p}'))" style="margin-left:4px;font-size:0.7rem">Mesh</button>
+    <div class="peer-list__item">
+      <span class="peer-list__dot"></span>
+      <span class="peer-list__name">${escapeHtml(p)}</span>
+      ${state.isCreator ? `<button class="btn btn--sm btn--ghost" onclick="import('./peer.js').then(m=>m.transferCreator('${p}'))">Handoff</button>` : ''}
+      <button class="btn btn--sm btn--ghost" onclick="import('./peer.js').then(m=>m.connectMesh('${p}'))">Mesh</button>
     </div>
   `).join('');
 }
@@ -137,7 +153,7 @@ export function renderChatMessage(sender, text, self) {
   div.className = 'chat-msg ' + (sender === 'System' ? 'system' : self ? 'self' : 'other');
   if (sender !== 'System' && !self) {
     const nameDiv = document.createElement('div');
-    nameDiv.className = 'chat-sender';
+    nameDiv.className = 'chat-msg__sender';
     nameDiv.textContent = sender;
     div.appendChild(nameDiv);
   }
@@ -153,6 +169,12 @@ export function renderChatHistory() {
   for (const msg of state.chatMessages) {
     renderChatMessage(msg.sender, msg.text, msg.self);
   }
+}
+
+export function updateArchiveCount() {
+  if (!el.archiveCount) return;
+  const n = state.files.size;
+  el.archiveCount.textContent = n;
 }
 
 export function renderFileList() {
@@ -173,11 +195,13 @@ export function renderFileList() {
     return b.timestamp - a.timestamp;
   });
 
+  updateArchiveCount();
+
   if (items.length === 0) {
     el.emptyState.style.display = 'block';
     el.emptyState.innerHTML = query
-      ? '<div class="icon">' + icon.search + '</div><p>No files match your search</p>'
-      : '<div class="icon">' + icon.inbox + '</div><p>No files yet. Upload something!</p>';
+      ? '<div class="empty-state__mark">∅</div><div class="empty-state__text">No items match your search</div>'
+      : '<div class="empty-state__mark">—</div><div class="empty-state__text">No items in the archive yet</div>';
     el.fileList.innerHTML = '';
     updateBatchBar();
     updateQueueInfo();
@@ -200,7 +224,7 @@ export function renderFileList() {
   const showLoadMore = total > limit;
   if (showLoadMore) items = items.slice(0, limit);
 
-  const rendered = items.map(f => {
+  const rendered = items.map((f, idx) => {
     const isIncoming = !!state.incoming[f.fileId];
     const incomingData = state.incoming[f.fileId];
     const isUploading = f.uploading;
@@ -210,11 +234,12 @@ export function renderFileList() {
     const isSelected = state.selected.has(f.fileId);
     const previewType = getPreviewType(f.mime);
     const hasSelfDestruct = !!f.selfDestruct;
+    const pinned = f.pinned;
 
     let badge;
-    if (isIncoming) badge = '<span class="badge badge-transfer">Syncing...</span>';
+    if (isIncoming) badge = '<span class="badge badge-transfer">Syncing</span>';
     else if (isUploading && isPaused) badge = '<span class="badge badge-paused">Paused</span>';
-    else if (isUploading) badge = '<span class="badge badge-upload">Uploading...</span>';
+    else if (isUploading) badge = '<span class="badge badge-upload">Uploading</span>';
     else if (inQueue) badge = '<span class="badge badge-pending">Queued</span>';
     else if (!f.synced) badge = '<span class="badge badge-pending">Pending</span>';
     else if (hasSelfDestruct) badge = '<span class="badge badge-self-destruct">Expires</span>';
@@ -223,66 +248,47 @@ export function renderFileList() {
     const pct = isIncoming && incomingData
       ? Math.round((incomingData.received || 0) / (incomingData.totalChunks || 1) * 100)
       : (f.uploadProgress || 0);
-    const pinIcon = f.pinned ? icon.star : icon.starOutline;
+    const pinIcon = pinned ? icon.star : icon.starOutline;
 
     const elapsed = isUploading && state.speedStart ? (Date.now() - state.speedStart) / 1000 : 0;
     const speedStr = isUploading && elapsed > 0 ? fmtSpeed(state.speedBytes / elapsed) : '';
 
+    const indexLabel = String(idx + 1).padStart(2, '0');
+
     return `
-      <div class="file-item ${isSelected ? 'selected' : ''}" data-id="${f.fileId}" draggable="true">
-        <label class="checkbox-label">
-          <input type="checkbox" class="file-checkbox" data-id="${f.fileId}" ${isSelected ? 'checked' : ''}>
-        </label>
-        <span class="icon">${extIcon(f.name)}</span>
-        <div class="info">
-          <div class="name" ondblclick="import('./peer.js').then(m=>m.requestRename('${f.fileId}'))" title="Double-click to rename">${escapeHtml(f.name)}</div>
-          ${f.comment ? '<div class="comment-preview">' + escapeHtml(f.comment) + '</div>' : ''}
-          <div class="meta">
-            <span>${fmtSize(f.size)}</span>
+      <div class="file-row ${isSelected ? 'selected' : ''}" data-id="${f.fileId}" draggable="true">
+        <span class="file-row__index">${indexLabel}${pinned ? ' ★' : ''}</span>
+        <span class="file-row__icon">${extIcon(f.name)}</span>
+        <div class="file-row__body">
+          <div class="file-row__name" ondblclick="import('./peer.js').then(m=>m.requestRename('${f.fileId}'))" title="Double-click to rename">${escapeHtml(f.name)}</div>
+          ${f.comment ? '<div class="file-row__comment">' + escapeHtml(f.comment) + '</div>' : ''}
+          <div class="file-row__meta">
             <span>${fmtTime(f.timestamp)}</span>
             ${badge}
-            ${speedStr ? '<span class="speed-indicator" style="font-size:0.7rem;color:var(--text-secondary)">' + speedStr + '</span>' : ''}
+            ${speedStr ? '<span class="speed-indicator">' + speedStr + '</span>' : ''}
           </div>
-          ${isTransferring ? '<div class="progress"><div class="progress-bar" style="width:' + pct + '%"></div></div>' : ''}
+          ${isTransferring ? '<div class="file-row__progress"><div class="file-row__progress-bar" style="width:' + pct + '%"></div></div>' : ''}
         </div>
-        <div class="actions">
-          <button class="btn btn-icon btn-action" data-action="pin" title="${f.pinned ? 'Unpin' : 'Pin'}">${pinIcon}</button>
-          ${previewType && f.synced && !isTransferring ? `<button class="btn btn-icon btn-action" data-action="preview" title="Preview">${icon.search}</button>` : ''}
-          ${isUploading && !isPaused ? `<button class="btn btn-icon btn-action" data-action="pause" title="Pause">${icon.pause}</button>` : ''}
-          ${isUploading && isPaused ? `<button class="btn btn-icon btn-action" data-action="resume" title="Resume">${icon.play}</button>` : ''}
-          ${(!isTransferring || isPaused) && !inQueue ? `<button class="btn btn-icon btn-action" data-action="download" title="Download">${icon.download}</button>` : ''}
-          <button class="btn btn-icon btn-action" data-action="more" title="More">⋮</button>
-          <div class="more-menu" data-id="${f.fileId}">
-            <button data-action="rename">Rename</button>
-            <button data-action="comment">Comment</button>
-            <button data-action="self-destruct">Self-Destruct</button>
-            <button data-action="delete" style="color:var(--error-text)">Delete</button>
-          </div>
+        <div class="file-row__size">${fmtSize(f.size)}</div>
+        <div class="file-row__actions">
+          <button class="icon-btn ${pinned ? 'icon-btn--active' : ''}" data-action="pin" title="${pinned ? 'Unpin' : 'Pin'}">${pinIcon}</button>
+          ${previewType && f.synced && !isTransferring ? `<button class="icon-btn" data-action="preview" title="Preview">${icon.eye}</button>` : ''}
+          <button class="icon-btn" data-action="comment" title="Comment">${icon.textQuote}</button>
+          <button class="icon-btn" data-action="self-destruct" title="Self-destruct">${icon.hourglass}</button>
+          ${isUploading && !isPaused ? `<button class="icon-btn" data-action="pause" title="Pause">${icon.pause}</button>` : ''}
+          ${isUploading && isPaused ? `<button class="icon-btn" data-action="resume" title="Resume">${icon.play}</button>` : ''}
+          ${(!isTransferring || isPaused) && !inQueue ? `<button class="icon-btn" data-action="download" title="Download">${icon.download}</button>` : ''}
+          <button class="icon-btn icon-btn--danger" data-action="delete" title="Delete">${icon.trash2}</button>
         </div>
       </div>`;
   }).join('');
 
   el.fileList.innerHTML = rendered;
 
-  el.fileList.querySelectorAll('[data-action="more"]').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      el.fileList.querySelectorAll('.more-menu').forEach(m => {
-        if (m !== btn.nextElementSibling) m.classList.remove('active');
-      });
-      btn.nextElementSibling.classList.toggle('active');
-    });
-  });
-
-  document.addEventListener('click', () => {
-    el.fileList.querySelectorAll('.more-menu').forEach(m => m.classList.remove('active'));
-  });
-
   if (showLoadMore) {
     const btn = document.createElement('button');
-    btn.className = 'btn btn-secondary btn-block btn-sm';
-    btn.textContent = `Show ${total - limit} more (${total} total)`;
-    btn.style.marginBottom = '12px';
+    btn.className = 'load-more';
+    btn.textContent = `Show ${total - limit} more · ${total} total`;
     btn.addEventListener('click', () => {
       state.renderLimit += 50;
       import('./ui.js').then(m => m.renderFileList());
@@ -295,68 +301,68 @@ export function renderFileList() {
       const id = e.target.dataset.id;
       if (e.target.checked) state.selected.add(id);
       else state.selected.delete(id);
-      e.target.closest('.file-item').classList.toggle('selected', e.target.checked);
+      e.target.closest('.file-row').classList.toggle('selected', e.target.checked);
       updateBatchBar();
     });
   });
 
   el.fileList.querySelectorAll('[data-action="download"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       downloadFile(id);
     });
   });
 
   el.fileList.querySelectorAll('[data-action="delete"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       deleteFile(id);
     });
   });
 
   el.fileList.querySelectorAll('[data-action="pin"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       togglePin(id);
     });
   });
 
   el.fileList.querySelectorAll('[data-action="preview"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       openPreview(id);
     });
   });
 
   el.fileList.querySelectorAll('[data-action="pause"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       pauseTransfer(id);
     });
   });
 
   el.fileList.querySelectorAll('[data-action="resume"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       resumeTransfer(id);
     });
   });
 
   el.fileList.querySelectorAll('[data-action="comment"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       requestComment(id);
     });
   });
 
   el.fileList.querySelectorAll('[data-action="self-destruct"]').forEach(btn => {
     btn.addEventListener('click', e => {
-      const id = e.target.closest('.file-item').dataset.id;
+      const id = e.target.closest('.file-row').dataset.id;
       showSelfDestructMenu(id);
     });
   });
 
-  el.fileList.querySelectorAll('.file-item[draggable="true"]').forEach(item => {
+  el.fileList.querySelectorAll('.file-row[draggable="true"]').forEach(item => {
     item.addEventListener('dragstart', e => {
       const id = item.dataset.id;
       const entry = state.files.get(id);
@@ -376,22 +382,29 @@ function showSelfDestructMenu(fileId) {
   if (!entry) return;
   const current = entry.selfDestruct ? entry.selfDestruct / 60000 : 0;
   const options = [0, 1, 5, 15, 30, 60, 1440];
-  const labels = ['Off', '1 min', '5 min', '15 min', '30 min', '1 hour', '24 hours'];
-  const menu = document.createElement('div');
-  menu.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);border-radius:12px;padding:20px;box-shadow:var(--shadow-lg);z-index:300;min-width:200px;';
-  menu.innerHTML = '<div style="font-weight:600;margin-bottom:12px">Self-Destruct Timer</div>' +
-    options.map((o, i) =>
-      `<button class="btn btn-sm ${o === current ? 'btn-primary' : 'btn-secondary'}" data-val="${o}" style="display:block;width:100%;margin-bottom:4px">${labels[i]}</button>`
-    ).join('') +
-    '<button class="btn btn-sm btn-secondary" id="sd-cancel" style="display:block;width:100%;margin-top:8px">Cancel</button>';
-  document.body.appendChild(menu);
-  menu.querySelectorAll('[data-val]').forEach(b => {
+  const labels = ['Off', '1 minute', '5 minutes', '15 minutes', '30 minutes', '1 hour', '24 hours'];
+  el.sdOptions.innerHTML = options.map((o, i) =>
+    `<button class="option-list__item ${o === current ? 'option-list__item--active' : ''}" data-val="${o}">
+      <span>${labels[i]}</span>
+      <span class="option-list__meta">${o === 0 ? 'never' : o + ' min'}</span>
+    </button>`
+  ).join('');
+  el.selfDestructModal.classList.add('active');
+  el.sdOptions.querySelectorAll('[data-val]').forEach(b => {
     b.addEventListener('click', () => {
-      import('./peer.js').then(m => m.setSelfDestruct(fileId, parseInt(b.dataset.val)));
-      menu.remove();
+      setSelfDestruct(fileId, parseInt(b.dataset.val));
+      el.selfDestructModal.classList.remove('active');
     });
   });
-  menu.querySelector('#sd-cancel').addEventListener('click', () => menu.remove());
+}
+
+if (el.sdClose) {
+  el.sdClose.addEventListener('click', () => el.selfDestructModal.classList.remove('active'));
+}
+if (el.selfDestructModal) {
+  el.selfDestructModal.addEventListener('click', e => {
+    if (e.target === el.selfDestructModal) el.selfDestructModal.classList.remove('active');
+  });
 }
 
 export function updateQueueInfo() {
@@ -516,6 +529,8 @@ function openPreview(fileId) {
   const previewType = getPreviewType(entry.mime);
   if (!previewType) return;
 
+  if (el.previewTitle) el.previewTitle.textContent = entry.name;
+
   const blobToUse = entry.streamingBlob || entry.data;
   const url = URL.createObjectURL(blobToUse);
   el.previewModal.classList.add('active');
@@ -532,14 +547,14 @@ function openPreview(fileId) {
     video.controls = true;
     video.autoplay = false;
     video.style.maxWidth = '100%';
-    video.style.maxHeight = '80vh';
+    video.style.maxHeight = '70vh';
     video.preload = 'auto';
     el.previewContent.appendChild(video);
   } else if (previewType === 'audio') {
     const div = document.createElement('div');
     div.style.textAlign = 'center';
     div.style.padding = '40px 20px';
-    div.innerHTML = `<div style="font-size:3rem;margin-bottom:16px">${icon.music}</div><p style="margin-bottom:16px">${entry.name}</p>`;
+    div.innerHTML = `<div style="font-size:3rem;margin-bottom:16px">${icon.music}</div><p style="font-family:var(--serif);font-style:italic;font-size:18px;margin-bottom:16px">${escapeHtml(entry.name)}</p>`;
     const audio = document.createElement('audio');
     audio.src = url;
     audio.controls = true;
@@ -551,20 +566,12 @@ function openPreview(fileId) {
     embed.src = url;
     embed.type = 'application/pdf';
     embed.style.width = '100%';
-    embed.style.height = '80vh';
+    embed.style.height = '70vh';
     el.previewContent.appendChild(embed);
   } else if (previewType === 'text') {
     entry.data.text().then(text => {
       const pre = document.createElement('pre');
       pre.textContent = text;
-      pre.style.whiteSpace = 'pre-wrap';
-      pre.style.wordBreak = 'break-word';
-      pre.style.maxHeight = '70vh';
-      pre.style.overflowY = 'auto';
-      pre.style.background = 'var(--bg-soft)';
-      pre.style.padding = '16px';
-      pre.style.borderRadius = '8px';
-      pre.style.fontSize = '0.85rem';
       el.previewContent.appendChild(pre);
     });
   }
@@ -595,35 +602,36 @@ export async function runOCR() {
   state.ocrActive = !state.ocrActive;
   const btn = document.getElementById('btn-ocr');
   if (!state.ocrActive) {
-    if (btn) btn.textContent = 'OCR Search';
+    if (btn) btn.textContent = 'OCR';
     state.searchQuery = '';
     document.getElementById('search-input').value = '';
     renderFileList();
     return;
   }
-  if (btn) btn.textContent = 'OCR: scanning...';
+  if (btn) btn.textContent = 'Scanning…';
   try {
     const { createWorker } = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
     const worker = await createWorker('eng');
     const imageFiles = Array.from(state.files.values()).filter(f =>
       f.mime && f.mime.startsWith('image/') && f.data && !state.ocrIndex[f.fileId]
     );
-    for (const f of imageFiles) {
+    for (let i = 0; i < imageFiles.length; i++) {
+      const f = imageFiles[i];
       try {
         const blob = f.data;
         const { data } = await worker.recognize(blob);
         state.ocrIndex[f.fileId] = data.text.toLowerCase();
-        if (btn) btn.textContent = `OCR: ${Math.round(imageFiles.indexOf(f) / imageFiles.length * 100)}%`;
+        if (btn) btn.textContent = `Scanning ${Math.round(i / imageFiles.length * 100)}%`;
       } catch (e) {
         state.ocrIndex[f.fileId] = '';
       }
     }
     await worker.terminate();
-    if (btn) btn.textContent = 'OCR: done';
+    if (btn) btn.textContent = 'OCR Done';
     showToast(`OCR indexed ${imageFiles.length} file(s)`);
   } catch (e) {
     showToast('OCR failed: ' + e.message);
-    if (btn) btn.textContent = 'OCR Search';
+    if (btn) btn.textContent = 'OCR';
   }
   renderFileList();
 }

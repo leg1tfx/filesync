@@ -1,4 +1,4 @@
-const CACHE = 'filesync-v1';
+const CACHE = 'filesync-v2';
 const URLS = [
   '.',
   'index.html',
@@ -9,6 +9,8 @@ const URLS = [
   'js/db.js',
   'js/ui.js',
   'js/peer.js',
+  'js/icons.js',
+  'icon.svg',
   'manifest.json',
 ];
 

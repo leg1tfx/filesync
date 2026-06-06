@@ -722,10 +722,10 @@ body.dark .theme-toggle__dot {
 
 .file-row {
   display: grid;
-  grid-template-columns: 40px 36px 1fr auto;
+  grid-template-columns: 40px 28px 1fr auto auto;
   gap: 16px;
   align-items: center;
-  padding: 16px 0;
+  padding: 18px 0;
   border-bottom: 1px solid var(--border);
   transition: background var(--duration) var(--ease);
   animation: rowIn var(--duration) var(--ease) both;
@@ -819,6 +819,7 @@ body.dark .theme-toggle__dot {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   text-transform: none;
+  white-space: nowrap;
 }
 
 .file-row__actions {
@@ -1460,8 +1461,9 @@ body.dark .modal-overlay {
   .actions-grid { gap: 24px; margin-bottom: 40px; }
   .colophon { flex-direction: column; gap: 8px; align-items: flex-start; }
   .room-meta { grid-template-columns: 1fr; gap: 16px; }
-  .file-row { grid-template-columns: 28px 24px 1fr; gap: 12px; padding: 14px 0; }
-  .file-row__actions { grid-column: 1 / -1; justify-content: flex-end; padding-left: 40px; margin-top: 4px; }
+  .file-row { grid-template-columns: 28px 22px 1fr; gap: 12px; padding: 14px 0; }
+  .file-row__size { display: none; }
+  .file-row__actions { grid-column: 1 / -1; justify-content: flex-end; padding-left: 50px; padding-top: 6px; }
   .file-row.selected::before { left: -16px; width: 2px; }
   .file-row__size { font-size: 11px; }
   .room-actions { flex-direction: column; }

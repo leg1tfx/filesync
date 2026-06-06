@@ -777,8 +777,8 @@ export function leaveRoom() {
   clearTimeout(state.reconnectTimer);
   history.replaceState(null, '', window.location.pathname);
   document.getElementById('qr-panel').style.display = 'none';
-  document.getElementById('chat-panel').style.display = 'none';
-  document.getElementById('peer-list-panel').style.display = 'none';
+  document.getElementById('chat-panel').classList.remove('active');
+  document.getElementById('peer-list-panel').classList.remove('active');
   const qrContainer = document.getElementById('qrcode');
   if (qrContainer) qrContainer.innerHTML = '';
   showHome();

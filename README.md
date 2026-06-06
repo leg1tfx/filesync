@@ -68,8 +68,9 @@ Peer-to-peer file sync directly in your browser. No server, no account, no file 
 - **Tesseract.js** (loaded on demand) – OCR for image text search
 - **IndexedDB** – Local file storage
 - **PWA** – Manifest + Service Worker for installable app
-- **Vanilla CSS** – Dark mode with CSS variables, responsive, animated UI
-- **SVG icons** – 22 inline SVG icons (no emoji, no icon library)
+- **Vanilla CSS** – Editorial/magazine design system with CSS variables, dark mode (paper / night), responsive
+- **Typography** – Fraunces (display), Newsreader (body), JetBrains Mono (data) — all variable
+- **SVG icons** – 30 inline SVG icons (no emoji, no icon library)
 
 ## Browser Support
 

@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FileSync</title>
+  <title>FileSync — A direct transfer protocol</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#4f6ef7">
+  <meta name="theme-color" content="#F2EBDD">
   <meta name="description" content="Peer-to-peer file sharing directly in your browser. No server, no account, no limits.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -15,173 +18,315 @@
 </head>
 <body>
   <div id="app">
+
     <div id="screen-home" class="screen active">
-      <div class="card">
-        <button class="theme-toggle" id="theme-toggle-home" title="Toggle dark mode"></button>
-        <h1>FileSync</h1>
-        <p>Share files directly between browsers.<br>No server, no account, no upload limit.</p>
-        <button class="btn btn-primary btn-block" id="btn-create">Create Room</button>
-        <div class="divider"><span>or</span></div>
-        <div class="join-form">
-          <input type="text" id="input-room-code" placeholder="Enter room code (e.g. blue-tiger-42)" autocomplete="off" />
-          <button class="btn btn-primary" id="btn-join">Join</button>
+
+      <header class="masthead">
+        <div class="masthead__row">
+          <span>Vol. 01</span>
+          <span>Established 2024</span>
+          <span>Direct Transfer</span>
         </div>
-        <div class="password-form">
-          <input type="password" id="input-room-password" placeholder="Room password (optional)" autocomplete="off" />
+        <h1 class="masthead__title"><em>File</em>Sync</h1>
+        <p class="masthead__deck">A direct transfer protocol for files between browsers — serverless, accountless, unlimited in size. The first peer-to-peer file exchange that runs entirely in your tab.</p>
+        <div class="masthead__row" style="border-top:1px solid var(--border)">
+          <span>IndexedDB</span>
+          <span>WebRTC Mesh</span>
+          <span>Chunked</span>
         </div>
-        <p style="margin-top:16px;font-size:0.8rem;color:var(--text-secondary);">
-          Files stay in your browser &mdash; nothing is stored on a server.
-        </p>
-      </div>
+      </header>
+
+      <section class="actions-grid">
+
+        <div>
+          <div class="section-label">
+            <span class="section-label__title">§ 01 — Begin a Transfer</span>
+            <span class="section-label__meta">Host a new room</span>
+          </div>
+          <button class="btn btn--block btn--primary" id="btn-create">
+            <span>Open a New Room</span>
+            <span class="btn__arrow">→</span>
+          </button>
+        </div>
+
+        <div class="divider-words"><span>or</span></div>
+
+        <div>
+          <div class="section-label">
+            <span class="section-label__title">§ 02 — Join a Room</span>
+            <span class="section-label__meta">Enter a code</span>
+          </div>
+          <div class="join-form">
+            <div class="field">
+              <label class="field__label" for="input-room-code">Room Code</label>
+              <input type="text" id="input-room-code" placeholder="e.g. blue-tiger-42" autocomplete="off" />
+            </div>
+            <button class="btn" id="btn-join">Enter</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">
+            <span class="section-label__title">§ 03 — Optional</span>
+            <span class="section-label__meta">Add a passphrase</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="input-room-password">Passphrase</label>
+            <input type="password" id="input-room-password" placeholder="Leave blank for an open room" autocomplete="off" />
+          </div>
+        </div>
+
+      </section>
+
+      <footer class="colophon">
+        <span>Files remain in your browser</span>
+        <span>No server, no logs</span>
+        <span>Open Source / MIT</span>
+        <button class="theme-toggle" id="theme-toggle-home" title="Toggle paper / night">
+          <span class="theme-toggle__dot"></span>
+          <span id="theme-label-home">Day</span>
+        </button>
+      </footer>
     </div>
 
     <div id="screen-room" class="screen">
-      <div class="room-header">
-        <div class="room-code">
-          <span id="room-code-display"></span>
-          <button class="btn btn-secondary" id="btn-copy-code" style="padding:4px 10px;font-size:0.8rem;">Copy</button>
+
+      <div class="room-meta">
+        <div>
+          <div class="kicker">Room</div>
+          <div class="room-meta__code" id="room-code-display"></div>
+          <button class="room-meta__copy" id="btn-copy-code">
+            <span>Copy Link</span>
+            <span style="font-family:var(--serif);font-style:italic">↗</span>
+          </button>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-secondary btn-sm" id="btn-show-qr" title="Show QR code"></button>
-          <button class="btn btn-secondary btn-sm" id="btn-toggle-chat" title="Chat"></button>
-          <button class="btn btn-secondary btn-sm" id="btn-settings" title="Settings"></button>
-          <span id="peer-count" class="peer-count">Waiting for peers...</span>
-          <button class="theme-toggle" id="theme-toggle-room" title="Toggle dark mode" style="position:static;"></button>
-          <div class="status" id="connection-status">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+          <div class="status">
             <span class="dot" id="status-dot"></span>
-            <span id="status-text">Initializing...</span>
+            <span id="status-text">Initializing</span>
           </div>
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-secondary)" id="peer-count">Waiting for peers</div>
         </div>
+      </div>
+
+      <div class="section-label">
+        <span class="section-label__title">§ Tools</span>
+        <span class="section-label__meta">Quick actions</span>
+      </div>
+
+      <div class="toolbar" style="margin-bottom:24px">
+        <button class="btn btn--sm btn--ghost" id="btn-show-qr">QR Code</button>
+        <button class="btn btn--sm btn--ghost" id="btn-toggle-chat">Chat</button>
+        <button class="btn btn--sm btn--ghost" id="btn-settings">Settings</button>
+        <button class="theme-toggle" id="theme-toggle-room" style="margin-left:auto">
+          <span class="theme-toggle__dot"></span>
+          <span id="theme-label-room">Day</span>
+        </button>
       </div>
 
       <div id="qr-panel" class="qr-panel" style="display:none">
-        <div id="qrcode"></div>
-        <p class="qr-hint">Scan with phone to join</p>
-        <button class="btn btn-secondary btn-sm" id="btn-close-qr">Close</button>
-      </div>
-
-      <div id="peer-list-panel" class="peer-list-panel" style="display:none">
-        <div class="peer-list-header">
-          <strong>Connected Peers</strong>
-          <button class="btn btn-secondary btn-sm" id="btn-close-peer-list">Close</button>
-        </div>
-        <div id="peer-list-content"></div>
+        <div id="qrcode" class="qr-panel__code"></div>
+        <p class="qr-panel__hint">Scan with another device to join</p>
+        <button class="btn btn--sm btn--ghost" id="btn-close-qr">Close</button>
       </div>
 
       <div class="upload-zone" id="upload-zone">
-        <p>Drop files here or <a id="btn-browse">browse</a></p>
+        <div class="upload-zone__primary">
+          Drop files here, or <a id="btn-browse">browse</a>
+        </div>
+        <div class="upload-zone__sub">Multiple files supported · Drag from your desktop</div>
+        <div class="upload-zone__controls">
+          <label class="folder-toggle">
+            <input type="checkbox" id="chk-folder-mode">
+            <span>Upload folder structure</span>
+          </label>
+        </div>
         <input type="file" id="file-input" multiple hidden />
-        <label class="folder-toggle">
-          <input type="checkbox" id="chk-folder-mode"> Upload folders
-        </label>
         <input type="file" id="folder-input" webkitdirectory multiple hidden />
       </div>
 
-      <div class="toolbar">
-        <div class="search-box">
-          <span class="search-icon" id="search-icon"></span>
-          <input type="text" id="search-input" placeholder="Search files..." autocomplete="off" />
-        </div>
-        <button class="btn btn-secondary btn-sm" id="btn-select-all">Select All</button>
-        <button class="btn btn-secondary btn-sm" id="btn-ocr">OCR Search</button>
-      </div>
-
-      <div id="file-list-container">
-        <div id="empty-state">
-          <div class="icon"></div>
-          <p>No files yet. Upload something!</p>
-        </div>
-        <div class="file-list" id="file-list"></div>
-      </div>
-
-      <div id="batch-bar" class="batch-bar">
-        <span id="batch-count">0 selected</span>
-        <div class="batch-actions">
-          <button class="btn btn-success btn-sm" id="btn-batch-download">Download ZIP</button>
-          <button class="btn btn-danger btn-sm" id="btn-batch-delete">Delete</button>
-        </div>
-      </div>
-
-      <div id="queue-info" class="queue-info" style="display:none;">
+      <div id="queue-info" class="queue-info" style="display:none">
         <span id="queue-icon"></span>
         <span id="queue-count"></span>
-        <span id="speed-display" style="margin-left:auto"></span>
+        <span class="queue-info__speed" id="speed-display"></span>
       </div>
 
-      <div id="chat-panel" class="chat-panel" style="display:none">
-        <div class="chat-header">
-          <strong>Chat</strong>
-          <button class="btn btn-secondary btn-sm" id="btn-close-chat">Close</button>
+      <div class="archive-header">
+        <span class="archive-header__title">§ Archive</span>
+        <span class="archive-header__count"><strong id="archive-count">0</strong> items</span>
+      </div>
+
+      <div class="toolbar" style="margin-top:16px;margin-bottom:8px">
+        <div class="search">
+          <span class="search__icon" id="search-icon"></span>
+          <input type="text" id="search-input" placeholder="Search the archive…" autocomplete="off" />
         </div>
-        <div id="chat-messages" class="chat-messages"></div>
-        <div class="chat-input-row">
-          <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" />
-          <button class="btn btn-primary btn-sm" id="btn-chat-send">Send</button>
+        <div class="toolbar-actions">
+          <button class="btn btn--sm btn--ghost" id="btn-select-all">Select All</button>
+          <button class="btn btn--sm btn--ghost" id="btn-ocr">OCR</button>
         </div>
       </div>
 
-      <div class="room-actions" style="margin-top:16px;">
-        <button class="btn btn-success" id="btn-download-all">Download All as ZIP</button>
-        <button class="btn btn-secondary" id="btn-leave">Leave</button>
+      <div id="empty-state" class="empty-state">
+        <div class="empty-state__mark">—</div>
+        <div class="empty-state__text">No items in the archive yet</div>
       </div>
+
+      <div class="file-list" id="file-list"></div>
+
+      <div id="batch-bar" class="batch-bar">
+        <span class="batch-bar__count" id="batch-count">0 selected</span>
+        <div class="batch-bar__actions">
+          <button class="btn btn--sm" id="btn-batch-download">Download ZIP</button>
+          <button class="btn btn--sm" id="btn-batch-delete">Delete</button>
+        </div>
+      </div>
+
+      <div class="room-actions">
+        <button class="btn btn--primary" id="btn-download-all">
+          <span>Download All as ZIP</span>
+          <span class="btn__arrow">↓</span>
+        </button>
+        <button class="btn" id="btn-leave">Leave Room</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-panel" class="side-panel">
+    <div class="side-panel__header">
+      <span class="side-panel__title">§ Chat</span>
+      <button class="btn btn--sm btn--ghost" id="btn-close-chat">Close</button>
+    </div>
+    <div class="chat">
+      <div id="chat-messages" class="chat__messages"></div>
+      <div class="chat__input-row">
+        <div class="field">
+          <input type="text" id="chat-input" placeholder="Type a message…" autocomplete="off" />
+        </div>
+        <button class="btn btn--sm" id="btn-chat-send">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="peer-list-panel" class="side-panel">
+    <div class="side-panel__header">
+      <span class="side-panel__title">§ Peers</span>
+      <button class="btn btn--sm btn--ghost" id="btn-close-peer-list">Close</button>
+    </div>
+    <div class="side-panel__body">
+      <div id="peer-list-content" class="peer-list"></div>
     </div>
   </div>
 
   <div id="preview-modal" class="modal-overlay">
     <div class="modal">
-      <div class="modal-header">
-        <span class="modal-title">Preview</span>
-        <button class="btn btn-secondary btn-sm" id="preview-close">Close</button>
+      <div class="modal__header">
+        <div class="modal__title">
+          <span class="modal__title-kicker">§ Preview</span>
+          <span class="modal__title-main" id="preview-title">File</span>
+        </div>
+        <button class="btn btn--sm btn--ghost" id="preview-close">Close</button>
       </div>
-      <div class="modal-body" id="preview-content"></div>
+      <div class="modal__body" id="preview-content"></div>
     </div>
   </div>
 
   <div id="rename-modal" class="modal-overlay">
-    <div class="modal modal-sm">
-      <div class="modal-header">
-        <span class="modal-title">Rename File</span>
-        <button class="btn btn-secondary btn-sm" id="rename-close">Cancel</button>
+    <div class="modal modal--xs">
+      <div class="modal__header">
+        <div class="modal__title">
+          <span class="modal__title-kicker">§ Rename</span>
+          <span class="modal__title-main">Edit Filename</span>
+        </div>
+        <button class="btn btn--sm btn--ghost" id="rename-close">Cancel</button>
       </div>
-      <div class="modal-body">
-        <input type="text" id="rename-input" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;outline:none;background:var(--card);color:var(--text);" autocomplete="off" />
-        <button class="btn btn-primary btn-block" id="rename-confirm" style="margin-top:12px">Rename</button>
+      <div class="modal__body">
+        <div class="field">
+          <label class="field__label" for="rename-input">New name</label>
+          <input type="text" id="rename-input" autocomplete="off" />
+        </div>
+        <button class="btn btn--block btn--primary" id="rename-confirm" style="margin-top:16px">
+          <span>Save</span>
+          <span class="btn__arrow">→</span>
+        </button>
       </div>
     </div>
   </div>
 
   <div id="comment-modal" class="modal-overlay">
-    <div class="modal modal-sm">
-      <div class="modal-header">
-        <span class="modal-title">File Comment</span>
-        <button class="btn btn-secondary btn-sm" id="comment-close">Cancel</button>
+    <div class="modal modal--xs">
+      <div class="modal__header">
+        <div class="modal__title">
+          <span class="modal__title-kicker">§ Comment</span>
+          <span class="modal__title-main">Add a Note</span>
+        </div>
+        <button class="btn btn--sm btn--ghost" id="comment-close">Cancel</button>
       </div>
-      <div class="modal-body">
-        <textarea id="comment-input" rows="3" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;outline:none;background:var(--card);color:var(--text);resize:vertical"></textarea>
-        <button class="btn btn-primary btn-block" id="comment-confirm" style="margin-top:12px">Save Comment</button>
+      <div class="modal__body">
+        <div class="field">
+          <label class="field__label" for="comment-input">Note</label>
+          <textarea id="comment-input" rows="3" placeholder="Optional annotation, visible to all peers…"></textarea>
+        </div>
+        <button class="btn btn--block btn--primary" id="comment-confirm" style="margin-top:16px">
+          <span>Save Note</span>
+          <span class="btn__arrow">→</span>
+        </button>
       </div>
     </div>
   </div>
 
   <div id="settings-modal" class="modal-overlay">
-    <div class="modal modal-sm">
-      <div class="modal-header">
-        <span class="modal-title">Settings</span>
-        <button class="btn btn-secondary btn-sm" id="settings-close">Close</button>
+    <div class="modal modal--sm">
+      <div class="modal__header">
+        <div class="modal__title">
+          <span class="modal__title-kicker">§ Settings</span>
+          <span class="modal__title-main">Room Preferences</span>
+        </div>
+        <button class="btn btn--sm btn--ghost" id="settings-close">Close</button>
       </div>
-      <div class="modal-body">
+      <div class="modal__body">
         <div class="setting-row">
-          <span>Theme</span>
-          <button class="btn btn-secondary btn-sm" id="settings-theme-toggle"></button>
+          <div>
+            <div class="setting-row__label">Appearance</div>
+            <div class="setting-row__hint">Paper or night edition</div>
+          </div>
+          <div class="setting-row__control">
+            <button class="theme-toggle" id="settings-theme-toggle">
+              <span class="theme-toggle__dot"></span>
+              <span id="settings-theme-label">Day</span>
+            </button>
+          </div>
         </div>
         <div class="setting-row">
-          <span>Room password</span>
-          <input type="password" id="settings-password" placeholder="Enter room password" style="flex:1;padding:6px 10px;border:2px solid var(--border);border-radius:6px;font-size:0.85rem;outline:none;background:var(--card);color:var(--text);" />
+          <div>
+            <div class="setting-row__label">Passphrase</div>
+            <div class="setting-row__hint">XOR-obfuscated room key</div>
+          </div>
+          <div class="setting-row__control">
+            <div class="field" style="min-width:180px">
+              <input type="password" id="settings-password" placeholder="Enter passphrase" autocomplete="off" />
+            </div>
+          </div>
         </div>
-        <div class="setting-row" style="margin-top:8px">
-          <span></span>
-          <button class="btn btn-primary btn-sm" id="settings-save-password">Save</button>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px">
+          <button class="btn btn--sm btn--primary" id="settings-save-password">Save Passphrase</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="self-destruct-modal" class="modal-overlay">
+    <div class="modal modal--xs">
+      <div class="modal__header">
+        <div class="modal__title">
+          <span class="modal__title-kicker">§ Self-Destruct</span>
+          <span class="modal__title-main">Set Expiration</span>
+        </div>
+        <button class="btn btn--sm btn--ghost" id="sd-close">Cancel</button>
+      </div>
+      <div class="modal__body">
+        <p style="font-family:var(--serif);font-size:15px;color:var(--text-secondary);font-style:italic;margin-bottom:8px">The file will be removed from all peers after the selected time.</p>
+        <div class="option-list" id="sd-options"></div>
       </div>
     </div>
   </div>

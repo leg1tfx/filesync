@@ -66,7 +66,7 @@ export function getPreferredTheme() {
 export function applyTheme(theme) {
   document.body.classList.toggle('dark', theme === 'dark');
   localStorage.setItem('filesync-theme', theme);
-  document.querySelectorAll('.theme-toggle').forEach(b => b.innerHTML = theme === 'dark' ? icon.sun : icon.moon);
+  window.dispatchEvent(new CustomEvent('filesync:theme', { detail: { theme } }));
 }
 
 export function toggleTheme() {

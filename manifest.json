@@ -1,11 +1,11 @@
 {
   "name": "FileSync",
   "short_name": "FileSync",
-  "description": "Peer-to-peer file sharing directly in your browser. No server, no account, no limits.",
+  "description": "A direct transfer protocol for files between browsers. No server, no account, no limits.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f1f5f9",
-  "theme_color": "#4f6ef7",
+  "background_color": "#F2EBDD",
+  "theme_color": "#1A1714",
   "orientation": "portrait",
   "icons": [
     {
