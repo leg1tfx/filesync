@@ -248,17 +248,35 @@ export function renderFileList() {
         <div class="actions">
           <button class="btn btn-icon btn-action" data-action="pin" title="${f.pinned ? 'Unpin' : 'Pin'}">${pinIcon}</button>
           ${previewType && f.synced && !isTransferring ? `<button class="btn btn-icon btn-action" data-action="preview" title="Preview">${icon.search}</button>` : ''}
-          <button class="btn btn-icon btn-action" data-action="comment" title="Comment">${icon.messageCircle}</button>
-          <button class="btn btn-icon btn-action" data-action="self-destruct" title="Self-destruct">${icon.hourglass}</button>
           ${isUploading && !isPaused ? `<button class="btn btn-icon btn-action" data-action="pause" title="Pause">${icon.pause}</button>` : ''}
           ${isUploading && isPaused ? `<button class="btn btn-icon btn-action" data-action="resume" title="Resume">${icon.play}</button>` : ''}
           ${(!isTransferring || isPaused) && !inQueue ? `<button class="btn btn-icon btn-action" data-action="download" title="Download">${icon.download}</button>` : ''}
-          <button class="btn btn-danger btn-icon" data-action="delete">Delete</button>
+          <button class="btn btn-icon btn-action" data-action="more" title="More">⋮</button>
+          <div class="more-menu" data-id="${f.fileId}">
+            <button data-action="rename">Rename</button>
+            <button data-action="comment">Comment</button>
+            <button data-action="self-destruct">Self-Destruct</button>
+            <button data-action="delete" style="color:var(--error-text)">Delete</button>
+          </div>
         </div>
       </div>`;
   }).join('');
 
   el.fileList.innerHTML = rendered;
+
+  el.fileList.querySelectorAll('[data-action="more"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      el.fileList.querySelectorAll('.more-menu').forEach(m => {
+        if (m !== btn.nextElementSibling) m.classList.remove('active');
+      });
+      btn.nextElementSibling.classList.toggle('active');
+    });
+  });
+
+  document.addEventListener('click', () => {
+    el.fileList.querySelectorAll('.more-menu').forEach(m => m.classList.remove('active'));
+  });
 
   if (showLoadMore) {
     const btn = document.createElement('button');
