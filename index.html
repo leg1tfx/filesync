@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FileSync</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --primary: #4f6ef7;
+      --primary-dark: #3b56d9;
+      --text: #1a1a2e;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #app { width: 100%; max-width: 600px; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .card h1 { font-size: 2rem; margin-bottom: 8px; color: var(--primary); }
+    .card p { color: var(--text-secondary); margin-bottom: 24px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 20px; border-radius: 8px; border: none;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: #d1d5db; }
+    .btn-danger { background: #fee2e2; color: var(--error); }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-success { background: #d1fae5; color: #065f46; }
+    .btn-success:hover { background: #a7f3d0; }
+    .btn-block { width: 100%; justify-content: center; }
+    .btn-icon { padding: 6px 12px; font-size: 0.8rem; }
+
+    .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text-secondary); font-size: 0.85rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
+
+    .join-form { display: flex; gap: 8px; }
+    .join-form input {
+      flex: 1; padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px;
+      font-size: 0.95rem; outline: none; transition: border-color 0.2s;
+    }
+    .join-form input:focus { border-color: var(--primary); }
+
+    .room-header {
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 16px 20px; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .room-code { display: flex; align-items: center; gap: 8px; }
+    .room-code span {
+      font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px;
+      background: #f0f4ff; padding: 4px 12px; border-radius: 6px; color: var(--primary);
+    }
+    .status { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-secondary); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .dot-connecting { background: var(--warning); }
+    .dot-connected { background: var(--success); }
+    .dot-error { background: var(--error); }
+    .dot-disconnected { background: var(--text-secondary); }
+
+    .upload-zone {
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+      border: 2px dashed var(--border); padding: 28px 20px; text-align: center;
+      cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 16px;
+    }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: #f0f4ff; }
+    .upload-zone p { color: var(--text-secondary); font-size: 0.95rem; }
+    .upload-zone a { color: var(--primary); cursor: pointer; text-decoration: underline; }
+
+    #empty-state {
+      text-align: center; padding: 32px 16px; color: var(--text-secondary);
+    }
+    #empty-state .icon { font-size: 3rem; margin-bottom: 8px; }
+    #empty-state p { font-size: 0.9rem; }
+
+    .file-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .file-item {
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+      transition: opacity 0.3s;
+    }
+    .file-item .icon { font-size: 1.5rem; flex-shrink: 0; }
+    .file-item .info { flex: 1; min-width: 0; }
+    .file-item .name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-item .meta { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .file-item .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; }
+    .badge-synced { background: #d1fae5; color: #065f46; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-transfer { background: #dbeafe; color: #1e40af; }
+    .badge-upload { background: #fef3c7; color: #92400e; }
+    .file-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .file-item .btn-icon { padding: 6px 10px; font-size: 0.8rem; }
+    .file-item .progress { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .file-item .progress-bar { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s; }
+
+    .room-actions { display: flex; gap: 8px; }
+    .room-actions .btn { flex: 1; }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: #fff; padding: 10px 20px; border-radius: 8px;
+      font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 500px) {
+      .card { padding: 28px 20px; }
+      .card h1 { font-size: 1.6rem; }
+      .room-header { flex-direction: column; align-items: stretch; }
+      .room-code { justify-content: center; }
+      .status { justify-content: center; }
+      .file-item { flex-wrap: wrap; }
+      .file-item .actions { width: 100%; justify-content: flex-end; }
+      .room-actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Home -->
+    <div id="screen-home" class="screen active">
+      <div class="card">
+        <h1>FileSync</h1>
+        <p>Share files directly between browsers.<br>No server, no account, no upload limit.</p>
+        <button class="btn btn-primary btn-block" id="btn-create">Create Room</button>
+        <div class="divider"><span>or</span></div>
+        <div class="join-form">
+          <input type="text" id="input-room-code" placeholder="Enter room code (e.g. blue-tiger-42)" autocomplete="off" />
+          <button class="btn btn-primary" id="btn-join">Join</button>
+        </div>
+        <p style="margin-top:16px;font-size:0.8rem;color:var(--text-secondary);">
+          Files stay in your browser &mdash; nothing is stored on a server.
+        </p>
+      </div>
+    </div>
+
+    <!-- Room -->
+    <div id="screen-room" class="screen">
+      <div class="room-header">
+        <div class="room-code">
+          <span id="room-code-display"></span>
+          <button class="btn btn-secondary" id="btn-copy-code" style="padding:4px 10px;font-size:0.8rem;">Copy</button>
+        </div>
+        <div class="status" id="connection-status">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text">Initializing...</span>
+        </div>
+      </div>
+
+      <div class="upload-zone" id="upload-zone">
+        <p>Drop files here or <a id="btn-browse">browse</a></p>
+        <input type="file" id="file-input" multiple hidden />
+      </div>
+
+      <div id="file-list-container">
+        <div id="empty-state">
+          <div class="icon">&#128229;</div>
+          <p>No files yet. Upload something!</p>
+        </div>
+        <div class="file-list" id="file-list"></div>
+      </div>
+
+      <div class="room-actions" style="margin-top:16px;">
+        <button class="btn btn-success" id="btn-download-all">Download All as ZIP</button>
+        <button class="btn btn-secondary" id="btn-leave">Leave</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const ADJECTIVES = 'blue bold calm cool crisp dark dawn deep dusk empty fast free fresh gold grand grey happy jolly keen kind late lazy light long loud lush merry mild near neat noble pale pure quiet rapid rare safe sharp silk slim slow soft still swift tall tiny vast warm wild young zesty'.split(' ');
+    const NOUNS = 'badger beaver beetle biscuit bobcat branch bridge candle castle cricket crystal dagger eagle falcon feather garden gravel hollow jaguar lantern lizard marble monkey mosaic nebula needle paddle pebble pepper pickle planet pocket puzzle quartz rabbit ribbon saddle salmon scarf shovel sickle slipper spider spiral splash squash squirrel staple stitch thistle turtle violet walnut weasel willow winter wombat wreath zephyr zipper'.split(' ');
+
+    const CHUNK_SIZE = 65536;
+    const DB_NAME = 'FileSyncDB';
+    const DB_VER = 1;
+    const STORE = 'files';
+
+    // State
+    let state = {
+      peer: null,
+      conn: null,
+      roomCode: null,
+      db: null,
+      files: new Map(),
+      incoming: {},
+      isCreator: false,
+      reconnectTimer: null,
+    };
+
+    // DOM
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    const el = {};
+    function cacheDOM() {
+      el.screenHome = $('#screen-home');
+      el.screenRoom = $('#screen-room');
+      el.btnCreate = $('#btn-create');
+      el.btnJoin = $('#btn-join');
+      el.inputRoomCode = $('#input-room-code');
+      el.roomCodeDisplay = $('#room-code-display');
+      el.btnCopyCode = $('#btn-copy-code');
+      el.statusDot = $('#status-dot');
+      el.statusText = $('#status-text');
+      el.uploadZone = $('#upload-zone');
+      el.btnBrowse = $('#btn-browse');
+      el.fileInput = $('#file-input');
+      el.fileList = $('#file-list');
+      el.emptyState = $('#empty-state');
+      el.btnDownloadAll = $('#btn-download-all');
+      el.btnLeave = $('#btn-leave');
+      el.toast = $('#toast');
+    }
+
+    // Utils
+    function genRoomCode() {
+      const a = ADJECTIVES[Math.random() * ADJECTIVES.length | 0];
+      const n = NOUNS[Math.random() * NOUNS.length | 0];
+      const num = Math.random() * 100 | 0;
+      return `${a}-${n}-${num}`;
+    }
+
+    function uuid() { return crypto.randomUUID(); }
+
+    function fmtSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+      return (bytes / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function fmtTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function extIcon(name) {
+      const ext = name.split('.').pop().toLowerCase();
+      const map = {
+        pdf: '\u{1F4C4}', doc: '\u{1F4C4}', docx: '\u{1F4C4}',
+        jpg: '\u{1F5BC}', jpeg: '\u{1F5BC}', png: '\u{1F5BC}', gif: '\u{1F5BC}', webp: '\u{1F5BC}',
+        mp4: '\u{1F3AC}', mov: '\u{1F3AC}', avi: '\u{1F3AC}',
+        mp3: '\u{1F3B5}', wav: '\u{1F3B5}', flac: '\u{1F3B5}',
+        zip: '\u{1F4E6}', rar: '\u{1F4E6}', '7z': '\u{1F4E6}',
+        txt: '\u{1F4DD}', md: '\u{1F4DD}',
+      };
+      return map[ext] || '\u{1F4C1}';
+    }
+
+    function showToast(msg, duration) {
+      el.toast.textContent = msg;
+      el.toast.classList.add('show');
+      clearTimeout(el.toast._t);
+      el.toast._t = setTimeout(() => el.toast.classList.remove('show'), duration || 2500);
+    }
+
+    function getShareLink() {
+      const url = new URL(window.location);
+      url.hash = state.roomCode;
+      return url.toString();
+    }
+
+    // IndexedDB
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE))
+            db.createObjectStore(STORE, { keyPath: 'fileId' });
+        };
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e.target.error);
+      });
+    }
+
+    function dbPut(store, data) {
+      return new Promise((resolve, reject) => {
+        const tx = state.db.transaction(store, 'readwrite');
+        tx.objectStore(store).put(data);
+        tx.oncomplete = () => resolve();
+        tx.onerror = e => reject(e.target.error);
+      });
+    }
+
+    function dbGet(store, key) {
+      return new Promise((resolve, reject) => {
+        const tx = state.db.transaction(store, 'readonly');
+        const req = tx.objectStore(store).get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = e => reject(e.target.error);
+      });
+    }
+
+    function dbGetAll(store) {
+      return new Promise((resolve, reject) => {
+        const tx = state.db.transaction(store, 'readonly');
+        const req = tx.objectStore(store).getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = e => reject(e.target.error);
+      });
+    }
+
+    function dbDelete(store, key) {
+      return new Promise((resolve, reject) => {
+        const tx = state.db.transaction(store, 'readwrite');
+        tx.objectStore(store).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = e => reject(e.target.error);
+      });
+    }
+
+    // PeerJS & Connection
+    function createRoom() {
+      state.roomCode = genRoomCode();
+      state.isCreator = true;
+      setStatus('connecting', 'Creating room...');
+      initPeer(`fs-${state.roomCode}`);
+    }
+
+    function joinRoom(code) {
+      code = code.trim().toLowerCase();
+      if (!code) { showToast('Enter a room code'); return; }
+      state.roomCode = code;
+      state.isCreator = false;
+      setStatus('connecting', 'Joining room...');
+      initPeer(null);
+    }
+
+    function initPeer(peerId) {
+      state.peer = new Peer(peerId, {
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+          ]
+        }
+      });
+
+      state.peer.on('open', id => {
+        showRoom();
+        if (!state.isCreator) {
+          connectToPeer(`fs-${state.roomCode}`);
+        }
+      });
+
+      state.peer.on('connection', conn => {
+        acceptConnection(conn);
+      });
+
+      state.peer.on('error', err => {
+        if (err.type === 'unavailable-id') {
+          if (!state.isCreator) {
+            showToast('Room not found');
+            showHome();
+          } else {
+            showToast('Room code taken, trying another...');
+            setTimeout(createRoom, 500);
+          }
+        } else if (err.type === 'peer-unavailable') {
+          setStatus('disconnected', 'Friend is offline. Waiting...');
+          scheduleReconnect();
+        } else {
+          setStatus('error', 'Connection error');
+          showToast('Connection error: ' + err.message);
+        }
+      });
+
+      state.peer.on('disconnected', () => {
+        setStatus('disconnected', 'Disconnected');
+        scheduleReconnect();
+      });
+    }
+
+    function connectToPeer(targetId) {
+      setStatus('connecting', 'Connecting...');
+      const conn = state.peer.connect(targetId, { reliable: true });
+      setupConnection(conn);
+    }
+
+    function acceptConnection(conn) {
+      setupConnection(conn);
+    }
+
+    function setupConnection(conn) {
+      conn.on('open', () => {
+        state.conn = conn;
+        setStatus('connected', 'Connected');
+        clearTimeout(state.reconnectTimer);
+        conn.send(JSON.stringify({ type: 'sync-request' }));
+      });
+
+      conn.on('data', data => {
+        if (typeof data === 'string') {
+          handleMessage(JSON.parse(data));
+        } else if (data instanceof ArrayBuffer) {
+          handleChunk(new Uint8Array(data));
+        } else if (data instanceof Blob) {
+          data.arrayBuffer().then(buf => handleChunk(new Uint8Array(buf)));
+        }
+      });
+
+      conn.on('close', () => {
+        state.conn = null;
+        setStatus('disconnected', 'Disconnected');
+        scheduleReconnect();
+      });
+
+      conn.on('error', err => {
+        showToast('Connection error');
+        state.conn = null;
+        scheduleReconnect();
+      });
+    }
+
+    function scheduleReconnect() {
+      if (state.isCreator) return;
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = setTimeout(() => {
+        if (state.peer && state.roomCode && !state.isCreator) {
+          connectToPeer(`fs-${state.roomCode}`);
+        }
+      }, 3000);
+    }
+
+    // Message protocol
+    async function handleMessage(msg) {
+      switch (msg.type) {
+        case 'sync-request': {
+          const all = await dbGetAll(STORE);
+          const files = all.map(f => ({ fileId: f.fileId, name: f.name, size: f.size, mime: f.mime, timestamp: f.timestamp }));
+          send({ type: 'sync-response', files });
+          break;
+        }
+        case 'sync-response': {
+          const local = await dbGetAll(STORE);
+          const localIds = new Set(local.map(f => f.fileId));
+          for (const f of msg.files) {
+            if (!localIds.has(f.fileId)) {
+              send({ type: 'sync-download', fileId: f.fileId });
+            }
+          }
+          break;
+        }
+        case 'sync-download': {
+          const entry = await dbGet(STORE, msg.fileId);
+          if (entry) {
+            await sendFile(entry);
+            await markSynced(msg.fileId);
+          }
+          break;
+        }
+        case 'file-start': {
+          if (!state.files.has(msg.fileId)) {
+            state.files.set(msg.fileId, {
+              fileId: msg.fileId,
+              name: msg.name,
+              size: msg.size,
+              mime: msg.mime,
+              timestamp: msg.timestamp,
+              synced: true,
+              receiving: true,
+            });
+          }
+          state.incoming[msg.fileId] = {
+            meta: { name: msg.name, size: msg.size, mime: msg.mime, timestamp: msg.timestamp },
+            chunks: [],
+            totalChunks: msg.totalChunks,
+            received: 0,
+          };
+          renderFileList();
+          break;
+        }
+        case 'file-complete': {
+          await assembleFile(msg.fileId);
+          break;
+        }
+      }
+    }
+
+    function send(obj) {
+      if (state.conn && state.conn.open) {
+        state.conn.send(JSON.stringify(obj));
+      }
+    }
+
+    // Binary chunk handling
+    function handleChunk(uint8) {
+      const dec = new TextDecoder();
+      const fileId = dec.decode(uint8.slice(0, 36)).replace(/\0+$/, '');
+      const chunkIndex = new DataView(uint8.buffer, uint8.byteOffset + 36, 4).getUint32(0, true);
+      const totalChunks = new DataView(uint8.buffer, uint8.byteOffset + 40, 4).getUint32(0, true);
+      const data = uint8.slice(44);
+
+      if (!state.incoming[fileId]) return;
+      const entry = state.incoming[fileId];
+      entry.chunks[chunkIndex] = data;
+      entry.received++;
+      const pct = Math.round(entry.received / totalChunks * 100);
+      updateFileUI(fileId, 'transfer', pct);
+    }
+
+    // File transfer
+    async function sendFile(fileData) {
+      const blob = fileData.data;
+      const totalChunks = Math.ceil(blob.size / CHUNK_SIZE) || 1;
+
+      const localEntry = state.files.get(fileData.fileId);
+      if (localEntry) {
+        localEntry.uploading = true;
+        localEntry.uploadProgress = 0;
+      }
+      renderFileList();
+
+      send({
+        type: 'file-start',
+        fileId: fileData.fileId,
+        name: fileData.name,
+        size: fileData.size,
+        mime: fileData.mime,
+        timestamp: fileData.timestamp,
+        totalChunks,
+      });
+
+      const enc = new TextEncoder();
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, blob.size);
+        const slice = await blob.slice(start, end).arrayBuffer();
+
+        const headerSize = 44;
+        const chunk = new Uint8Array(headerSize + slice.byteLength);
+        const idBytes = enc.encode(fileData.fileId.padEnd(36, '\0').slice(0, 36));
+        chunk.set(idBytes, 0);
+        const view = new DataView(chunk.buffer);
+        view.setUint32(36, i, true);
+        view.setUint32(40, totalChunks, true);
+        chunk.set(new Uint8Array(slice), 44);
+
+        if (state.conn && state.conn.open) {
+          state.conn.send(chunk.buffer);
+        }
+
+        const pct = Math.round((i + 1) / totalChunks * 100);
+        if (localEntry) {
+          localEntry.uploadProgress = pct;
+          updateFileUI(fileData.fileId, 'upload', pct);
+        }
+      }
+
+      send({ type: 'file-complete', fileId: fileData.fileId });
+
+      if (localEntry) {
+        localEntry.uploading = false;
+        delete localEntry.uploadProgress;
+      }
+      renderFileList();
+    }
+
+    async function assembleFile(fileId) {
+      const entry = state.incoming[fileId];
+      if (!entry) return;
+      const parts = entry.chunks;
+      const blob = new Blob(parts, { type: entry.meta.mime });
+      const fileData = {
+        fileId,
+        name: entry.meta.name,
+        size: entry.meta.size,
+        mime: entry.meta.mime,
+        timestamp: entry.meta.timestamp || Date.now(),
+        data: blob,
+      };
+      fileData.synced = true;
+      await dbPut(STORE, fileData);
+      state.files.set(fileId, fileData);
+      delete state.incoming[fileId];
+      renderFileList();
+      showToast(`Received: ${entry.meta.name}`);
+    }
+
+    async function markSynced(fileId) {
+      const entry = state.files.get(fileId);
+      if (!entry) return;
+      entry.synced = true;
+      state.files.set(fileId, entry);
+      await dbPut(STORE, { ...entry, synced: true });
+    }
+
+    // Upload
+    async function uploadFiles(fileList) {
+      for (const file of fileList) {
+        const fileId = uuid();
+        const fileData = {
+          fileId,
+          name: file.name,
+          size: file.size,
+          mime: file.type || 'application/octet-stream',
+          timestamp: Date.now(),
+          data: new Blob([file], { type: file.type }),
+          synced: false,
+        };
+        await dbPut(STORE, fileData);
+        state.files.set(fileId, fileData);
+
+        if (state.conn && state.conn.open) {
+          await sendFile(fileData);
+          await markSynced(fileId);
+        }
+      }
+      renderFileList();
+    }
+
+    // Download
+    function downloadFile(fileId) {
+      const entry = state.files.get(fileId);
+      if (!entry) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(entry.data);
+      a.download = entry.name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    async function downloadAll() {
+      const all = await dbGetAll(STORE);
+      if (!all.length) { showToast('No files to download'); return; }
+      const zip = new JSZip();
+      for (const f of all) {
+        zip.file(f.name, f.data);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `filesync-${state.roomCode || 'files'}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast(`Downloaded ${all.length} file(s)`);
+    }
+
+    async function deleteFile(fileId) {
+      await dbDelete(STORE, fileId);
+      state.files.delete(fileId);
+      renderFileList();
+    }
+
+    // UI: Screens
+    function showHome() {
+      el.screenHome.classList.add('active');
+      el.screenRoom.classList.remove('active');
+    }
+
+    function showRoom() {
+      el.screenHome.classList.remove('active');
+      el.screenRoom.classList.add('active');
+      el.roomCodeDisplay.textContent = state.roomCode;
+      history.replaceState(null, '', '#' + state.roomCode);
+    }
+
+    function setStatus(type, text) {
+      const dots = { connecting: 'dot-connecting', connected: 'dot-connected', error: 'dot-error', disconnected: 'dot-disconnected' };
+      el.statusDot.className = 'dot ' + (dots[type] || 'dot-disconnected');
+      el.statusText.textContent = text;
+    }
+
+    function addFileCard(f) {
+      if (!state.files.has(f.fileId)) state.files.set(f.fileId, f);
+    }
+
+    function updateFileUI(fileId, status, progress) {
+      const card = document.querySelector(`[data-id="${fileId}"]`);
+      if (!card) return;
+      const badge = card.querySelector('.badge');
+      const bar = card.querySelector('.progress-bar');
+      if (badge) {
+        const labels = { synced: 'Synced', pending: 'Pending', transfer: 'Syncing...', upload: 'Uploading...' };
+        badge.textContent = labels[status] || status;
+        const cls = { synced: 'badge-synced', pending: 'badge-pending', transfer: 'badge-transfer', upload: 'badge-upload' };
+        badge.className = 'badge ' + (cls[status] || 'badge-transfer');
+      }
+      if (bar) bar.style.width = progress + '%';
+    }
+
+    function renderFileList() {
+      const items = Array.from(state.files.values());
+      if (items.length === 0) {
+        el.emptyState.style.display = 'block';
+        el.fileList.innerHTML = '';
+        return;
+      }
+      el.emptyState.style.display = 'none';
+      el.fileList.innerHTML = items.map(f => {
+        const isIncoming = !!state.incoming[f.fileId];
+        const isUploading = f.uploading;
+        const isTransferring = isIncoming || isUploading;
+
+        let badge;
+        if (isIncoming) badge = '<span class="badge badge-transfer">Syncing...</span>';
+        else if (isUploading) badge = '<span class="badge badge-upload">Uploading...</span>';
+        else if (f.synced === false) badge = '<span class="badge badge-pending">Pending</span>';
+        else badge = '<span class="badge badge-synced">Synced</span>';
+
+        const progressPct = isIncoming ? 0 : (f.uploadProgress || 0);
+        return `
+          <div class="file-item" data-id="${f.fileId}">
+            <span class="icon">${extIcon(f.name)}</span>
+            <div class="info">
+              <div class="name">${f.name}</div>
+              <div class="meta">
+                <span>${fmtSize(f.size)}</span>
+                <span>${fmtTime(f.timestamp)}</span>
+                ${badge}
+              </div>
+              ${isTransferring ? '<div class="progress"><div class="progress-bar" style="width:' + progressPct + '%"></div></div>' : ''}
+            </div>
+            <div class="actions">
+              ${(f.receiving || isUploading) ? '' : '<button class="btn btn-secondary btn-icon" data-action="download">Download</button>'}
+              <button class="btn btn-danger btn-icon" data-action="delete">Delete</button>
+            </div>
+          </div>`;
+      }).join('');
+
+      el.fileList.querySelectorAll('[data-action="download"]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const id = e.target.closest('.file-item').dataset.id;
+          downloadFile(id);
+        });
+      });
+      el.fileList.querySelectorAll('[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const id = e.target.closest('.file-item').dataset.id;
+          deleteFile(id);
+        });
+      });
+    }
+
+    // Init
+    async function init() {
+      cacheDOM();
+
+      // URL hash handling
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        el.inputRoomCode.value = hash;
+        joinRoom(hash);
+      }
+
+      // IndexedDB
+      try {
+        state.db = await openDB();
+      } catch (e) {
+        showToast('Failed to open storage: ' + e.message);
+        return;
+      }
+
+      // Load stored files
+      const stored = await dbGetAll(STORE);
+      for (const f of stored) state.files.set(f.fileId, f);
+      renderFileList();
+
+      // Event listeners
+      el.btnCreate.addEventListener('click', createRoom);
+
+      el.btnJoin.addEventListener('click', () => joinRoom(el.inputRoomCode.value));
+      el.inputRoomCode.addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(el.inputRoomCode.value); });
+
+      el.btnCopyCode.addEventListener('click', () => {
+        const link = getShareLink();
+        navigator.clipboard.writeText(link).then(() => showToast('Link copied!')).catch(() => {
+          navigator.clipboard.writeText(state.roomCode).then(() => showToast('Room code copied!'));
+        });
+      });
+
+      el.uploadZone.addEventListener('click', () => el.fileInput.click());
+      el.btnBrowse.addEventListener('click', e => { e.stopPropagation(); el.fileInput.click(); });
+      el.fileInput.addEventListener('change', () => { uploadFiles(el.fileInput.files); el.fileInput.value = ''; });
+
+      el.uploadZone.addEventListener('dragover', e => { e.preventDefault(); el.uploadZone.classList.add('dragover'); });
+      el.uploadZone.addEventListener('dragleave', () => el.uploadZone.classList.remove('dragover'));
+      el.uploadZone.addEventListener('drop', e => {
+        e.preventDefault();
+        el.uploadZone.classList.remove('dragover');
+        uploadFiles(e.dataTransfer.files);
+      });
+
+      el.btnDownloadAll.addEventListener('click', downloadAll);
+
+      el.btnLeave.addEventListener('click', () => {
+        if (state.conn) state.conn.close();
+        if (state.peer) state.peer.destroy();
+        state.peer = null;
+        state.conn = null;
+        state.roomCode = null;
+        state.incoming = {};
+        clearTimeout(state.reconnectTimer);
+        history.replaceState(null, '', window.location.pathname);
+        showHome();
+        setStatus('disconnected', '');
+      });
+
+      // Load stored files into file list display
+      renderFileList();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
