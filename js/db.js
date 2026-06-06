@@ -13,6 +13,15 @@ export function openDB() {
   });
 }
 
+export function dbGetAllKeys(store) {
+  return new Promise((resolve, reject) => {
+    const tx = state.db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAllKeys();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
 export function dbPut(store, data) {
   return new Promise((resolve, reject) => {
     const tx = state.db.transaction(store, 'readwrite');

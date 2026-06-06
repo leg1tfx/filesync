@@ -1,7 +1,9 @@
 import { state, CHUNK_SIZE, STORE } from './state.js';
-import { genRoomCode, isFileProtocol } from './utils.js';
-import { dbPut, dbGet, dbGetAll } from './db.js';
-import { showHome, showRoom, setStatus, showToast, updateFileUI, renderFileList, renderPeerList } from './ui.js';
+import { genRoomCode, isFileProtocol, getShareLink, escapeHtml, simpleEncrypt, simpleDecrypt } from './utils.js';
+import { dbPut, dbGet, dbGetAll, dbGetAllKeys, dbDelete } from './db.js';
+import { showHome, showRoom, setStatus, showToast, updateFileUI, renderFileList, renderPeerList, renderChatMessage, renderPeerListPanel } from './ui.js';
+
+const MAX_RETRIES = 3;
 
 export function createRoom() {
   if (isFileProtocol()) {
@@ -10,9 +12,18 @@ export function createRoom() {
   }
   state.roomCode = genRoomCode();
   state.isCreator = true;
+  const pw = document.getElementById('input-room-password');
+  state.password = pw ? pw.value.trim() || null : null;
   showRoom();
   setStatus('connecting', 'Creating room...');
   initPeer(`fs-${state.roomCode}`);
+  autoCopyLink();
+  setTimeout(() => generateQR(), 500);
+}
+
+function autoCopyLink() {
+  const link = getShareLink();
+  navigator.clipboard.writeText(link).then(() => showToast('Room created! Link copied to clipboard')).catch(() => {});
 }
 
 export function joinRoom(code) {
@@ -24,6 +35,11 @@ export function joinRoom(code) {
   }
   state.roomCode = code;
   state.isCreator = false;
+  const params = new URLSearchParams(window.location.search);
+  const p = params.get('p');
+  if (p) {
+    try { state.password = atob(p); } catch(e) { state.password = null; }
+  }
   showRoom();
   setStatus('connecting', 'Joining room...');
   initPeer(null);
@@ -111,9 +127,13 @@ function setupConnection(conn) {
     if (typeof data === 'string') {
       handleMessage(JSON.parse(data), conn);
     } else if (data instanceof ArrayBuffer) {
-      handleChunk(new Uint8Array(data));
+      const decrypted = state.password ? simpleDecrypt(data, state.password) : data;
+      handleChunk(new Uint8Array(decrypted));
     } else if (data instanceof Blob) {
-      data.arrayBuffer().then(buf => handleChunk(new Uint8Array(buf)));
+      data.arrayBuffer().then(buf => {
+        const decrypted = state.password ? simpleDecrypt(buf, state.password) : buf;
+        handleChunk(new Uint8Array(decrypted));
+      });
     }
   });
 
@@ -155,7 +175,7 @@ async function handleMessage(msg, conn) {
   switch (msg.type) {
     case 'sync-request': {
       const all = await dbGetAll(STORE);
-      const files = all.map(f => ({ fileId: f.fileId, name: f.name, size: f.size, mime: f.mime, timestamp: f.timestamp }));
+      const files = all.map(f => ({ fileId: f.fileId, name: f.name, size: f.size, mime: f.mime, timestamp: f.timestamp, comment: f.comment }));
       sendTo(conn, { type: 'sync-response', files });
       break;
     }
@@ -188,10 +208,11 @@ async function handleMessage(msg, conn) {
           timestamp: msg.timestamp,
           synced: true,
           receiving: true,
+          comment: msg.comment || '',
         });
       }
       state.incoming[msg.fileId] = {
-        meta: { name: msg.name, size: msg.size, mime: msg.mime, timestamp: msg.timestamp },
+        meta: { name: msg.name, size: msg.size, mime: msg.mime, timestamp: msg.timestamp, comment: msg.comment || '' },
         chunks: [],
         totalChunks: msg.totalChunks,
         received: 0,
@@ -213,18 +234,107 @@ async function handleMessage(msg, conn) {
     case 'peer-list': {
       state.peerIds = msg.peers;
       renderPeerList();
+      renderPeerListPanel();
       break;
     }
     case 'peer-joined': {
       if (!state.peerIds.includes(msg.peerId)) state.peerIds.push(msg.peerId);
       renderPeerList();
+      renderPeerListPanel();
       break;
     }
     case 'peer-left': {
       state.peerIds = state.peerIds.filter(p => p !== msg.peerId);
       renderPeerList();
+      renderPeerListPanel();
       break;
     }
+    case 'chat': {
+      state.chatMessages.push({ sender: msg.sender || 'Peer', text: msg.text, self: false });
+      renderChatMessage(msg.sender || 'Peer', msg.text, false);
+      break;
+    }
+    case 'rename': {
+      const entry = state.files.get(msg.fileId);
+      if (entry) {
+        entry.name = msg.name;
+        state.files.set(msg.fileId, entry);
+        await dbPut(STORE, entry);
+        renderFileList();
+      }
+      break;
+    }
+    case 'comment': {
+      const entry = state.files.get(msg.fileId);
+      if (entry) {
+        entry.comment = msg.comment;
+        state.files.set(msg.fileId, entry);
+        await dbPut(STORE, entry);
+        renderFileList();
+      }
+      break;
+    }
+    case 'delete-file': {
+      state.files.delete(msg.fileId);
+      await dbDelete(STORE, msg.fileId);
+      renderFileList();
+      break;
+    }
+    case 'handoff-request': {
+      if (state.isCreator) {
+        const newCreatorId = msg.peerId;
+        sendToAll({ type: 'handoff-transfer', newCreator: newCreatorId });
+        state.isCreator = false;
+        showToast('Room creator transferred');
+        renderPeerList();
+      }
+      break;
+    }
+    case 'handoff-transfer': {
+      showToast('Room creator has changed');
+      renderPeerList();
+      break;
+    }
+    case 'mesh-connect': {
+      if (msg.targetId && state.peer) {
+        const meshConn = state.peer.connect(msg.targetId, { reliable: true });
+        setupMeshConnection(meshConn);
+      }
+      break;
+    }
+  }
+}
+
+function setupMeshConnection(conn) {
+  conn.on('open', () => {
+    if (!state.meshPeers) state.meshPeers = new Map();
+    state.meshPeers.set(conn.peer, conn);
+    showToast('Mesh connected: ' + conn.peer);
+    sendTo(conn, { type: 'chat', sender: 'System', text: 'You are now mesh-connected' });
+  });
+  conn.on('data', data => {
+    if (typeof data === 'string') {
+      handleMessage(JSON.parse(data), conn);
+    } else if (data instanceof ArrayBuffer) {
+      const decrypted = state.password ? simpleDecrypt(data, state.password) : data;
+      handleChunk(new Uint8Array(decrypted));
+    }
+  });
+  conn.on('close', () => {
+    if (state.meshPeers) state.meshPeers.delete(conn.peer);
+    showToast('Mesh peer disconnected: ' + conn.peer);
+  });
+}
+
+export function sendChat(text) {
+  const msg = { type: 'chat', sender: state.peer ? state.peer.id : 'Me', text };
+  state.chatMessages.push({ sender: 'Me', text, self: true });
+  renderChatMessage('Me', text, true);
+  sendToAll(JSON.stringify(msg));
+  if (state.conn && state.conn.open) state.conn.send(JSON.stringify(msg));
+  if (state.meshPeers) {
+    const s = JSON.stringify(msg);
+    for (const c of state.meshPeers.values()) { if (c.open) c.send(s); }
   }
 }
 
@@ -242,6 +352,9 @@ function sendToAll(obj) {
   const msg = JSON.stringify(obj);
   for (const conn of state.conns.values()) {
     if (conn.open) conn.send(msg);
+  }
+  if (state.meshPeers) {
+    for (const c of state.meshPeers.values()) { if (c.open) c.send(msg); }
   }
 }
 
@@ -265,6 +378,15 @@ function handleChunk(uint8) {
   entry.received++;
   const pct = Math.round(entry.received / totalChunks * 100);
   updateFileUI(fileId, 'transfer', pct);
+
+  if (entry.meta && entry.meta.mime && entry.meta.mime.startsWith('video/') && pct > 0 && pct % 25 === 0) {
+    const partialBlob = new Blob(entry.chunks.filter(Boolean), { type: entry.meta.mime });
+    const existing = state.files.get(fileId);
+    if (existing) {
+      existing.streamingBlob = partialBlob;
+      state.files.set(fileId, existing);
+    }
+  }
 }
 
 async function sendFile(fileData, dest, startFrom) {
@@ -288,11 +410,15 @@ async function sendFile(fileData, dest, startFrom) {
       mime: fileData.mime,
       timestamp: fileData.timestamp,
       totalChunks,
+      comment: fileData.comment || '',
     });
   }
   renderFileList();
 
   const enc = new TextEncoder();
+  state.speedBytes = 0;
+  state.speedStart = Date.now();
+
   for (let i = startFrom || 0; i < totalChunks; i++) {
     if (state.paused.has(fileData.fileId)) {
       state.resumeState[fileData.fileId] = { fileData, startChunk: i, dest: conn };
@@ -306,15 +432,36 @@ async function sendFile(fileData, dest, startFrom) {
     const slice = await blob.slice(start, end).arrayBuffer();
 
     const headerSize = 44;
-    const chunk = new Uint8Array(headerSize + slice.byteLength);
+    let payload = slice;
+    if (state.password) {
+      payload = simpleEncrypt(new Uint8Array(slice), state.password);
+    }
+    const chunk = new Uint8Array(headerSize + payload.byteLength);
     const idBytes = enc.encode(fileData.fileId.padEnd(36, '\0').slice(0, 36));
     chunk.set(idBytes, 0);
     const view = new DataView(chunk.buffer);
     view.setUint32(36, i, true);
     view.setUint32(40, totalChunks, true);
-    chunk.set(new Uint8Array(slice), 44);
+    chunk.set(new Uint8Array(payload), 44);
 
-    if (conn.open) conn.send(chunk.buffer);
+    let sent = false;
+    for (let retry = 0; retry <= MAX_RETRIES && !sent; retry++) {
+      try {
+        if (conn.open) {
+          conn.send(chunk.buffer);
+          sent = true;
+        }
+      } catch (e) {
+        if (retry < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 200 * (retry + 1)));
+        } else {
+          showToast('Failed to send chunk: ' + fileData.name);
+          return;
+        }
+      }
+    }
+
+    state.speedBytes += slice.byteLength;
 
     const pct = Math.round((i + 1) / totalChunks * 100);
     if (localEntry) {
@@ -372,6 +519,7 @@ async function assembleFile(fileId) {
     mime: entry.meta.mime,
     timestamp: entry.meta.timestamp || Date.now(),
     data: blob,
+    comment: entry.meta.comment || '',
   };
   fileData.synced = true;
   await dbPut(STORE, fileData);
@@ -382,6 +530,7 @@ async function assembleFile(fileId) {
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('FileSync', { body: `Received: ${entry.meta.name}`, icon: '/favicon.ico' });
   }
+  checkSelfDestruct(fileId);
 }
 
 async function markSynced(fileId) {
@@ -403,6 +552,7 @@ export async function uploadFiles(fileList) {
       timestamp: Date.now(),
       data: new Blob([file], { type: file.type }),
       synced: false,
+      comment: '',
     };
     await dbPut(STORE, fileData);
     state.files.set(fileId, fileData);
@@ -461,13 +611,156 @@ export async function downloadAll() {
   showToast(`Downloaded ${all.length} file(s)`);
 }
 
+export function generateQR() {
+  const container = document.getElementById('qrcode');
+  if (!container) return;
+  container.innerHTML = '';
+  try {
+    new QRCode(container, { text: getShareLink(), width: 180, height: 180 });
+  } catch(e) {
+    showToast('QR generation failed');
+  }
+}
+
+export function requestRename(fileId) {
+  const entry = state.files.get(fileId);
+  if (!entry) return;
+  state.renameModal = fileId;
+  const input = document.getElementById('rename-input');
+  if (input) {
+    input.value = entry.name;
+    document.getElementById('rename-modal').classList.add('active');
+    input.focus();
+    input.select();
+  }
+}
+
+export async function confirmRename() {
+  const fileId = state.renameModal;
+  if (!fileId) return;
+  const input = document.getElementById('rename-input');
+  const newName = input ? input.value.trim() : '';
+  if (!newName) { showToast('Name cannot be empty'); return; }
+  const entry = state.files.get(fileId);
+  if (entry) {
+    entry.name = newName;
+    state.files.set(fileId, entry);
+    await dbPut(STORE, entry);
+    renderFileList();
+    const renameMsg = { type: 'rename', fileId, name: newName };
+    sendToAll(JSON.stringify(renameMsg));
+    if (state.conn && state.conn.open) state.conn.send(JSON.stringify(renameMsg));
+  }
+  document.getElementById('rename-modal').classList.remove('active');
+  state.renameModal = null;
+}
+
+export function cancelRename() {
+  document.getElementById('rename-modal').classList.remove('active');
+  state.renameModal = null;
+}
+
+export function requestComment(fileId) {
+  const entry = state.files.get(fileId);
+  if (!entry) return;
+  state.commentModal = fileId;
+  const input = document.getElementById('comment-input');
+  if (input) {
+    input.value = entry.comment || '';
+    document.getElementById('comment-modal').classList.add('active');
+    input.focus();
+  }
+}
+
+export async function confirmComment() {
+  const fileId = state.commentModal;
+  if (!fileId) return;
+  const input = document.getElementById('comment-input');
+  const comment = input ? input.value.trim() : '';
+  const entry = state.files.get(fileId);
+  if (entry) {
+    entry.comment = comment;
+    state.files.set(fileId, entry);
+    await dbPut(STORE, entry);
+    renderFileList();
+    const commentMsg = { type: 'comment', fileId, comment };
+    sendToAll(JSON.stringify(commentMsg));
+    if (state.conn && state.conn.open) state.conn.send(JSON.stringify(commentMsg));
+  }
+  document.getElementById('comment-modal').classList.remove('active');
+  state.commentModal = null;
+}
+
+export function cancelComment() {
+  document.getElementById('comment-modal').classList.remove('active');
+  state.commentModal = null;
+}
+
+function checkSelfDestruct(fileId) {
+  const entry = state.files.get(fileId);
+  if (!entry || !entry.selfDestruct) return;
+  const delay = entry.selfDestruct;
+  state.selfDestructTimers[fileId] = setTimeout(async () => {
+    await dbDelete(STORE, fileId);
+    state.files.delete(fileId);
+    delete state.selfDestructTimers[fileId];
+    renderFileList();
+    showToast('Self-destructed: ' + entry.name);
+    const delMsg = { type: 'delete-file', fileId };
+    sendToAll(JSON.stringify(delMsg));
+    if (state.conn && state.conn.open) state.conn.send(JSON.stringify(delMsg));
+  }, delay);
+}
+
+export function setSelfDestruct(fileId, minutes) {
+  const entry = state.files.get(fileId);
+  if (!entry) return;
+  if (state.selfDestructTimers[fileId]) {
+    clearTimeout(state.selfDestructTimers[fileId]);
+  }
+  if (minutes > 0) {
+    entry.selfDestruct = minutes * 60 * 1000;
+    state.files.set(fileId, entry);
+    dbPut(STORE, entry);
+    checkSelfDestruct(fileId);
+    showToast(`Self-destruct in ${minutes}m`);
+  } else {
+    delete entry.selfDestruct;
+    state.files.set(fileId, entry);
+    dbPut(STORE, entry);
+    showToast('Self-destruct cancelled');
+  }
+  renderFileList();
+}
+
+export function transferCreator(newPeerId) {
+  if (!state.isCreator) return;
+  sendToAll({ type: 'handoff-transfer', newCreator: newPeerId });
+  state.isCreator = false;
+  showToast('Transferred creator to ' + newPeerId);
+  renderPeerList();
+}
+
+export function connectMesh(targetId) {
+  if (!state.peer) return;
+  const conn = state.peer.connect(targetId, { reliable: true });
+  setupMeshConnection(conn);
+  sendToAll({ type: 'mesh-connect', targetId });
+  showToast('Connecting mesh: ' + targetId);
+}
+
 export function leaveRoom() {
+  for (const id in state.selfDestructTimers) {
+    clearTimeout(state.selfDestructTimers[id]);
+  }
   if (state.conn) state.conn.close();
   for (const conn of state.conns.values()) conn.close();
+  if (state.meshPeers) { for (const c of state.meshPeers.values()) c.close(); }
   if (state.peer) state.peer.destroy();
   state.peer = null;
   state.conn = null;
   state.conns = new Map();
+  state.meshPeers = new Map();
   state.roomCode = null;
   state.incoming = {};
   state.queue = [];
@@ -476,8 +769,18 @@ export function leaveRoom() {
   state.resumeState = {};
   state.selected = new Set();
   state.peerIds = [];
+  state.chatMessages = [];
+  state.password = null;
+  state.selfDestructTimers = {};
+  state.renameModal = null;
+  state.commentModal = null;
   clearTimeout(state.reconnectTimer);
   history.replaceState(null, '', window.location.pathname);
+  document.getElementById('qr-panel').style.display = 'none';
+  document.getElementById('chat-panel').style.display = 'none';
+  document.getElementById('peer-list-panel').style.display = 'none';
+  const qrContainer = document.getElementById('qrcode');
+  if (qrContainer) qrContainer.innerHTML = '';
   showHome();
   setStatus('disconnected', '');
 }

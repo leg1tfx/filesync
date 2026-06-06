@@ -1,10 +1,16 @@
-import { $, el, cacheDOM, renderFileList, showToast, closePreview, setupGlobalDrag, batchDelete, batchDownload, selectAll, updateBatchBar, updateQueueInfo } from './ui.js';
+import { $, el, cacheDOM, renderFileList, showToast, closePreview, setupGlobalDrag, batchDelete, batchDownload, selectAll, updateBatchBar, updateQueueInfo, renderChatHistory } from './ui.js';
 import { state, STORE } from './state.js';
-import { applyTheme, getPreferredTheme, toggleTheme, getShareLink, debounce } from './utils.js';
+import { applyTheme, getPreferredTheme, toggleTheme, getShareLink, debounce, extIcon } from './utils.js';
+import { icon } from './icons.js';
 import { openDB, dbGetAll } from './db.js';
-import { createRoom, joinRoom, uploadFiles, downloadAll, leaveRoom } from './peer.js';
+import { createRoom, joinRoom, uploadFiles, downloadAll, leaveRoom, sendChat, generateQR, confirmRename, cancelRename, confirmComment, cancelComment, requestNotificationPermission } from './peer.js';
 
 cacheDOM();
+
+if (el.btnShowQr) el.btnShowQr.innerHTML = icon.camera;
+if (el.btnToggleChat) el.btnToggleChat.innerHTML = icon.messageCircle;
+if (el.searchIcon) el.searchIcon.innerHTML = icon.search;
+if (el.queueIcon) el.queueIcon.innerHTML = icon.clock;
 
 applyTheme(getPreferredTheme());
 $('#theme-toggle-home').addEventListener('click', toggleTheme);
@@ -40,9 +46,21 @@ el.btnCopyCode.addEventListener('click', () => {
   });
 });
 
-el.uploadZone.addEventListener('click', () => el.fileInput.click());
+el.uploadZone.addEventListener('click', () => {
+  if (el.chkFolderMode && el.chkFolderMode.checked) {
+    el.folderInput.click();
+  } else {
+    el.fileInput.click();
+  }
+});
 el.btnBrowse.addEventListener('click', e => { e.stopPropagation(); el.fileInput.click(); });
 el.fileInput.addEventListener('change', () => { uploadFiles(el.fileInput.files); el.fileInput.value = ''; });
+el.folderInput.addEventListener('change', () => { uploadFiles(el.folderInput.files); el.folderInput.value = ''; });
+if (el.chkFolderMode) {
+  el.chkFolderMode.addEventListener('change', e => {
+    el.fileInput.multiple = !e.target.checked;
+  });
+}
 
 el.uploadZone.addEventListener('dragover', e => { e.preventDefault(); el.uploadZone.classList.add('dragover'); });
 el.uploadZone.addEventListener('dragleave', () => el.uploadZone.classList.remove('dragover'));
@@ -69,3 +87,65 @@ el.previewModal.addEventListener('click', e => { if (e.target === el.previewModa
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
 
 setupGlobalDrag();
+
+if (el.btnShowQr) {
+  el.btnShowQr.addEventListener('click', () => {
+    const panel = el.qrPanel;
+    const isVisible = panel.style.display !== 'none';
+    panel.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+      import('./peer.js').then(m => m.generateQR());
+    }
+  });
+  el.btnCloseQr.addEventListener('click', () => { el.qrPanel.style.display = 'none'; });
+}
+
+if (el.btnToggleChat) {
+  el.btnToggleChat.addEventListener('click', () => {
+    const panel = el.chatPanel;
+    const isVisible = panel.style.display !== 'none';
+    panel.style.display = isVisible ? 'none' : 'flex';
+    if (!isVisible) {
+      renderChatHistory();
+      el.chatInput.focus();
+    }
+  });
+  el.btnCloseChat.addEventListener('click', () => { el.chatPanel.style.display = 'none'; });
+  el.btnChatSend.addEventListener('click', () => {
+    const text = el.chatInput.value.trim();
+    if (text) {
+      sendChat(text);
+      el.chatInput.value = '';
+    }
+  });
+  el.chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      el.btnChatSend.click();
+    }
+  });
+}
+
+el.peerCount.addEventListener('click', () => {
+  const panel = el.peerListPanel;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') {
+    import('./ui.js').then(m => m.renderPeerListPanel());
+  }
+});
+if (el.btnClosePeerList) {
+  el.btnClosePeerList.addEventListener('click', () => { el.peerListPanel.style.display = 'none'; });
+}
+
+document.getElementById('btn-ocr').addEventListener('click', async () => {
+  const { runOCR } = await import('./ui.js');
+  runOCR();
+});
+
+document.getElementById('rename-confirm').addEventListener('click', confirmRename);
+document.getElementById('rename-close').addEventListener('click', cancelRename);
+document.getElementById('rename-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmRename(); });
+
+document.getElementById('comment-confirm').addEventListener('click', confirmComment);
+document.getElementById('comment-close').addEventListener('click', cancelComment);
+
+requestNotificationPermission();

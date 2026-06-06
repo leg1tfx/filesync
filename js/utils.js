@@ -1,4 +1,5 @@
 import { state, ADJECTIVES, NOUNS } from './state.js';
+import { icon } from './icons.js';
 
 export function genRoomCode() {
   const a = ADJECTIVES[Math.random() * ADJECTIVES.length | 0];
@@ -10,6 +11,7 @@ export function genRoomCode() {
 export function uuid() { return crypto.randomUUID(); }
 
 export function fmtSize(bytes) {
+  if (bytes == null || bytes === 0) return '0 B';
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
   if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
@@ -21,17 +23,28 @@ export function fmtTime(ts) {
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+export function fmtSpeed(bytesPerSec) {
+  if (bytesPerSec == null || bytesPerSec === 0) return '';
+  if (bytesPerSec < 1024) return bytesPerSec.toFixed(0) + ' B/s';
+  if (bytesPerSec < 1048576) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+  return (bytesPerSec / 1048576).toFixed(1) + ' MB/s';
+}
+
 export function extIcon(name) {
   const ext = name.split('.').pop().toLowerCase();
   const map = {
-    pdf: '\u{1F4C4}', doc: '\u{1F4C4}', docx: '\u{1F4C4}',
-    jpg: '\u{1F5BC}', jpeg: '\u{1F5BC}', png: '\u{1F5BC}', gif: '\u{1F5BC}', webp: '\u{1F5BC}',
-    mp4: '\u{1F3AC}', mov: '\u{1F3AC}', avi: '\u{1F3AC}', mkv: '\u{1F3AC}',
-    mp3: '\u{1F3B5}', wav: '\u{1F3B5}', flac: '\u{1F3B5}', ogg: '\u{1F3B5}',
-    zip: '\u{1F4E6}', rar: '\u{1F4E6}', '7z': '\u{1F4E6}', gz: '\u{1F4E6}',
-    txt: '\u{1F4DD}', md: '\u{1F4DD}', json: '\u{1F4DD}', xml: '\u{1F4DD}',
+    pdf: 'file', doc: 'file', docx: 'file',
+    jpg: 'fileImage', jpeg: 'fileImage', png: 'fileImage', gif: 'fileImage', webp: 'fileImage', svg: 'fileImage',
+    mp4: 'fileVideo', mov: 'fileVideo', avi: 'fileVideo', mkv: 'fileVideo', webm: 'fileVideo',
+    mp3: 'fileAudio', wav: 'fileAudio', flac: 'fileAudio', ogg: 'fileAudio',
+    zip: 'fileArchive', rar: 'fileArchive', '7z': 'fileArchive', gz: 'fileArchive', tgz: 'fileArchive',
+    txt: 'fileText', md: 'fileText', json: 'fileText', xml: 'fileText', csv: 'fileText',
+    js: 'fileText', ts: 'fileText', py: 'fileText', html: 'fileText', css: 'fileText',
+    exe: 'fileExec', dmg: 'fileExec', apk: 'fileExec',
+    iso: 'fileDisk', img: 'fileDisk',
+    folder: 'folder',
   };
-  return map[ext] || '\u{1F4C1}';
+  return icon[map[ext]] || icon.folder;
 }
 
 export function getPreviewType(mime) {
@@ -53,7 +66,7 @@ export function getPreferredTheme() {
 export function applyTheme(theme) {
   document.body.classList.toggle('dark', theme === 'dark');
   localStorage.setItem('filesync-theme', theme);
-  document.querySelectorAll('.theme-toggle').forEach(b => b.textContent = theme === 'dark' ? '\u2600' : '\u263E');
+  document.querySelectorAll('.theme-toggle').forEach(b => b.innerHTML = theme === 'dark' ? icon.sun : icon.moon);
 }
 
 export function toggleTheme() {
@@ -68,10 +81,38 @@ export function isFileProtocol() {
 export function getShareLink() {
   const url = new URL(window.location);
   url.hash = state.roomCode;
+  if (state.password) url.searchParams.set('p', btoa(state.password));
   return url.toString();
 }
 
 export function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+export function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+export function simpleEncrypt(data, password) {
+  const key = simpleKey(password);
+  const bytes = new Uint8Array(data);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] ^= key[i % key.length];
+  }
+  return bytes.buffer;
+}
+
+export function simpleDecrypt(data, password) {
+  return simpleEncrypt(data, password);
+}
+
+function simpleKey(password) {
+  const key = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    key[i] = password.charCodeAt(i % password.length) ^ (i * 13);
+  }
+  return key;
 }

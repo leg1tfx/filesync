@@ -3,7 +3,7 @@ export const NOUNS = 'badger beaver beetle biscuit bobcat branch bridge candle c
 
 export const CHUNK_SIZE = 65536;
 export const DB_NAME = 'FileSyncDB';
-export const DB_VER = 2;
+export const DB_VER = 3;
 export const STORE = 'files';
 
 export const state = {
@@ -24,4 +24,16 @@ export const state = {
   selected: new Set(),
   pinOrder: [],
   peerIds: [],
+  chatMessages: [],
+  password: null,
+  retryCount: {},
+  speedBytes: 0,
+  speedStart: 0,
+  selfDestructTimers: {},
+  renameModal: null,
+  commentModal: null,
+  renderLimit: 50,
+  ocrActive: false,
+  ocrIndex: {},
+  streamingUrls: {},
 };

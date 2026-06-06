@@ -9,6 +9,7 @@
   <meta name="description" content="Peer-to-peer file sharing directly in your browser. No server, no account, no limits.">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" integrity="sha384-9Y7JNlBk3S6lW6uj0tRHCx1b4bNwPNlFwHXTve3aAgF7n/4FC7wFclGouAUkQD2" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-oA1wAqLBiOGSXQcP6PpeEoRsczzhASLIqf5LjNW9ceKDMq4/2eIobRxiK5Tqv1y" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <link rel="stylesheet" href="css/style.css">
   <link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -16,7 +17,7 @@
   <div id="app">
     <div id="screen-home" class="screen active">
       <div class="card">
-        <button class="theme-toggle" id="theme-toggle-home" title="Toggle dark mode">&#9790;</button>
+        <button class="theme-toggle" id="theme-toggle-home" title="Toggle dark mode"></button>
         <h1>FileSync</h1>
         <p>Share files directly between browsers.<br>No server, no account, no upload limit.</p>
         <button class="btn btn-primary btn-block" id="btn-create">Create Room</button>
@@ -24,6 +25,9 @@
         <div class="join-form">
           <input type="text" id="input-room-code" placeholder="Enter room code (e.g. blue-tiger-42)" autocomplete="off" />
           <button class="btn btn-primary" id="btn-join">Join</button>
+        </div>
+        <div class="password-form">
+          <input type="password" id="input-room-password" placeholder="Room password (optional)" autocomplete="off" />
         </div>
         <p style="margin-top:16px;font-size:0.8rem;color:var(--text-secondary);">
           Files stay in your browser &mdash; nothing is stored on a server.
@@ -38,8 +42,10 @@
           <button class="btn btn-secondary" id="btn-copy-code" style="padding:4px 10px;font-size:0.8rem;">Copy</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" id="btn-show-qr" title="Show QR code"></button>
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-chat" title="Chat"></button>
           <span id="peer-count" class="peer-count">Waiting for peers...</span>
-          <button class="theme-toggle" id="theme-toggle-room" title="Toggle dark mode" style="position:static;">&#9790;</button>
+          <button class="theme-toggle" id="theme-toggle-room" title="Toggle dark mode" style="position:static;"></button>
           <div class="status" id="connection-status">
             <span class="dot" id="status-dot"></span>
             <span id="status-text">Initializing...</span>
@@ -47,22 +53,41 @@
         </div>
       </div>
 
+      <div id="qr-panel" class="qr-panel" style="display:none">
+        <div id="qrcode"></div>
+        <p class="qr-hint">Scan with phone to join</p>
+        <button class="btn btn-secondary btn-sm" id="btn-close-qr">Close</button>
+      </div>
+
+      <div id="peer-list-panel" class="peer-list-panel" style="display:none">
+        <div class="peer-list-header">
+          <strong>Connected Peers</strong>
+          <button class="btn btn-secondary btn-sm" id="btn-close-peer-list">Close</button>
+        </div>
+        <div id="peer-list-content"></div>
+      </div>
+
       <div class="upload-zone" id="upload-zone">
         <p>Drop files here or <a id="btn-browse">browse</a></p>
         <input type="file" id="file-input" multiple hidden />
+        <label class="folder-toggle">
+          <input type="checkbox" id="chk-folder-mode"> Upload folders
+        </label>
+        <input type="file" id="folder-input" webkitdirectory multiple hidden />
       </div>
 
       <div class="toolbar">
         <div class="search-box">
-          <span class="search-icon">&#128270;</span>
+          <span class="search-icon" id="search-icon"></span>
           <input type="text" id="search-input" placeholder="Search files..." autocomplete="off" />
         </div>
         <button class="btn btn-secondary btn-sm" id="btn-select-all">Select All</button>
+        <button class="btn btn-secondary btn-sm" id="btn-ocr">OCR Search</button>
       </div>
 
       <div id="file-list-container">
         <div id="empty-state">
-          <div class="icon">&#128229;</div>
+          <div class="icon"></div>
           <p>No files yet. Upload something!</p>
         </div>
         <div class="file-list" id="file-list"></div>
@@ -77,8 +102,21 @@
       </div>
 
       <div id="queue-info" class="queue-info" style="display:none;">
-        <span>&#128337;</span>
+        <span id="queue-icon"></span>
         <span id="queue-count"></span>
+        <span id="speed-display" style="margin-left:auto"></span>
+      </div>
+
+      <div id="chat-panel" class="chat-panel" style="display:none">
+        <div class="chat-header">
+          <strong>Chat</strong>
+          <button class="btn btn-secondary btn-sm" id="btn-close-chat">Close</button>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" />
+          <button class="btn btn-primary btn-sm" id="btn-chat-send">Send</button>
+        </div>
       </div>
 
       <div class="room-actions" style="margin-top:16px;">
@@ -95,6 +133,32 @@
         <button class="btn btn-secondary btn-sm" id="preview-close">Close</button>
       </div>
       <div class="modal-body" id="preview-content"></div>
+    </div>
+  </div>
+
+  <div id="rename-modal" class="modal-overlay">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span class="modal-title">Rename File</span>
+        <button class="btn btn-secondary btn-sm" id="rename-close">Cancel</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="rename-input" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;outline:none;background:var(--card);color:var(--text);" autocomplete="off" />
+        <button class="btn btn-primary btn-block" id="rename-confirm" style="margin-top:12px">Rename</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="comment-modal" class="modal-overlay">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span class="modal-title">File Comment</span>
+        <button class="btn btn-secondary btn-sm" id="comment-close">Cancel</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="comment-input" rows="3" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;outline:none;background:var(--card);color:var(--text);resize:vertical"></textarea>
+        <button class="btn btn-primary btn-block" id="comment-confirm" style="margin-top:12px">Save Comment</button>
+      </div>
     </div>
   </div>
 
