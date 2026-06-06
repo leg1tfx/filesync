@@ -1,69 +1,89 @@
 # FileSync
 
-Peer-to-Peer Datei-Sync direkt im Browser. Kein Server, kein Account, keine Dateigrößen-Limits.
+Peer-to-peer file sync directly in your browser. No server, no account, no file size limits.
 
 ## Features
 
-- **P2P file transfer** – Direkte WebRTC-Verbindung zwischen Browsern, kein Zwischen-Server
-- **Multi-Peer Mesh** – Mehrere Nutzer gleichzeitig in einem Raum (Hub-and-Spoke)
-- **No file size limits** – Keine Upload-Begrenzung
-- **No account needed** – Keine Registrierung, kein Login
-- **Persistent storage** – Dateien bleiben in IndexedDB erhalten, auch nach Tab-Schließen
-- **Auto-sync** – Automatische Synchronisation bei Wiederherstellung der Verbindung
-- **Upload queue** – Dateien werden nacheinander in einer Warteschlange verarbeitet
-- **Pause/Resume** – Uploads anhalten und fortsetzen
-- **File preview** – Bilder, Videos, Audio, PDFs und Textdokumente inline ansehen
-- **Search & filter** – Dateien nach Namen durchsuchen
-- **Batch actions** – Mehrere Dateien auswählen, löschen oder als ZIP herunterladen
-- **Pin files** – Wichtige Dateien anpinnen (erscheinen immer oben)
-- **Browser notifications** – Benachrichtigung bei abgeschlossenem Download
-- **Dark mode** – Hell/Dunkel-Umschaltung (speichert Präferenz)
-- **ZIP bulk download** – Alle Dateien auf einmal herunterladen
-- **Drag & drop** – Dateien per Drag & Drop oder Dateiauswahl hochladen
-- **PWA ready** – Installierbar als App, Service Worker für Offline-Cache
-- **Desktop drag** – Dateien aus dem OS-Dateimanager direkt in die App ziehen
+- **P2P file transfer** – Direct WebRTC connection between browsers, no relay server
+- **Multi-Peer Mesh** – Multiple users simultaneously in one room (hub-and-spoke + direct mesh)
+- **No file size limits** – No upload cap
+- **No account needed** – No sign-up, no login
+- **Persistent storage** – Files stay in IndexedDB, persists across tab closes
+- **Auto-sync** – Automatic synchronization on reconnection
+- **QR code** – Scan to join a room from any device
+- **Chat** – Text chat alongside file transfers
+- **Password-protected rooms** – Optional XOR-obfuscated room passwords
+- **Upload queue** – Files are processed sequentially in a queue
+- **Pause/Resume** – Pause and resume uploads
+- **File preview** – Images, videos, audio, PDFs, and text files inline
+- **Search & filter** – Search files by name and comments
+- **OCR search** – Full-text search in images via Tesseract.js
+- **Batch actions** – Select multiple files, delete or download as ZIP
+- **Pin files** – Pin important files (always appear on top)
+- **Browser notifications** – Notification on completed download
+- **Dark mode** – Light/dark toggle (persists preference)
+- **File rename** – Rename files in-app, synced across peers
+- **File comments** – Add inline comments to any file
+- **Self-destruct timer** – Set files to auto-delete after 1m to 24h
+- **Folder upload** – Upload entire folder structures
+- **Chunk-level retry** – Resilient transfer with automatic retry
+- **Drag to desktop** – Native drag from browser to OS file manager
+- **Upload speed display** – Live speed indicator per file
+- **ZIP bulk download** – Download all or selected files as ZIP
+- **Drag & drop** – Upload via drag & drop or file picker
+- **PWA ready** – Installable as app, Service Worker for offline cache
+- **Desktop drag** – Drag files from OS file manager directly into the app
+- **Virtual scrolling** – Handles thousands of files efficiently
+- **Chunked download** – Streams large files to disk
+- **Creator handoff** – Transfer room ownership to another peer
+- **Mesh networking** – Direct connections between non-creator peers
+- **Video/audio streaming** – Start playback while file is still being received
 
 ## How to use
 
-1. Beide öffnen `index.html` (oder die gehostete URL)
-2. Person A klickt **Create Room** und teilt den Link mit weiteren Personen
-3. Alle öffnen den Link – Verbindung wird automatisch hergestellt
-4. Dateien hochladen: Sie werden an alle verbundenen Teilnehmer übertragen
-5. **Download All as ZIP** zum Batch-Download aller Dateien
+1. Both parties open `index.html` (or the hosted URL)
+2. Person A clicks **Create Room** and shares the link
+3. Everyone opens the link – connection is established automatically
+4. Upload files: they are transferred to all connected peers
+5. **Download All as ZIP** to batch-download all files
 
-> **Hinweis:** `file://`-Protokoll wird nicht unterstützt, da WebRTC einen HTTP-Server benötigt. Nutze GitHub Pages oder lokal `npx serve .`.
+> **Note:** `file://` protocol is not supported because WebRTC requires an HTTP server. Use GitHub Pages or locally `npx serve .`.
 
 ## How it works
 
-- **PeerJS** stellt WebRTC-Verbindungen zwischen den Browsern her
-- Der Raumersteller fungiert als Hub – alle Teilnehmer verbinden sich direkt
-- Dateien werden in 64-KB-Chunks übertragen
-- **IndexedDB** speichert Dateien lokal
-- Chunk-Header enthalten File-ID, Chunk-Index und Gesamtzahl
-- Bei erneuter Verbindung gleichen sich die Peers per Sync-Protokoll ab
+- **PeerJS** establishes WebRTC connections between browsers
+- The room creator acts as the hub – all participants connect directly
+- Files are transferred in 64 KB chunks
+- **IndexedDB** stores files locally
+- Chunk headers contain file ID, chunk index, and total count
+- On reconnection, peers sync via a sync protocol
+- All new features: chat, QR, rename, comments, self-destruct, OCR, mesh networking, handoff, and more
 
 ## Tech Stack
 
-- **Vanilla JS (ES Modules)** – Kein Framework, keine Build-Tools
-- **PeerJS** (CDN) – WebRTC Peer-to-Peer Verbindungen
-- **JSZip** (CDN) – ZIP-Erstellung im Browser
-- **IndexedDB** – Lokale Dateispeicherung
-- **PWA** – Manifest + Service Worker für installierbare App
-- **Vanilla CSS** – Dark Mode mit CSS-Variablen, responsive, animierte UI
+- **Vanilla JS (ES Modules)** – No framework, no build tools
+- **PeerJS** (CDN) – WebRTC peer-to-peer connections
+- **JSZip** (CDN) – ZIP creation in the browser
+- **QRCode.js** (CDN) – QR code generation
+- **Tesseract.js** (loaded on demand) – OCR for image text search
+- **IndexedDB** – Local file storage
+- **PWA** – Manifest + Service Worker for installable app
+- **Vanilla CSS** – Dark mode with CSS variables, responsive, animated UI
+- **SVG icons** – 22 inline SVG icons (no emoji, no icon library)
 
 ## Browser Support
 
-Chrome, Firefox, Edge, Safari (alle modernen Browser).
+Chrome, Firefox, Edge, Safari (all modern browsers).
 
 ## Deployment
 
-Einfach auf GitHub Pages, Netlify, Vercel oder einem beliebigen Static-Hoster ablegen:
+Simply deploy to GitHub Pages, Netlify, Vercel, or any static host:
 
 ```bash
 npx serve .
 ```
 
-Oder via GitHub Actions (`.github/workflows/deploy.yml`).
+Or via GitHub Actions (`.github/workflows/deploy.yml`).
 
 ## License
 
