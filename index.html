@@ -7,8 +7,8 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f6ef7">
   <meta name="description" content="Peer-to-peer file sharing directly in your browser. No server, no account, no limits.">
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" integrity="sha384-9Y7JNlBk3S6lW6uj0tRHCx1b4bNwPNlFwHXTve3aAgF7n/4FC7wFclGouAUkQD2" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-oA1wAqLBiOGSXQcP6PpeEoRsczzhASLIqf5LjNW9ceKDMq4/2eIobRxiK5Tqv1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <link rel="stylesheet" href="css/style.css">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -44,6 +44,7 @@
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" id="btn-show-qr" title="Show QR code"></button>
           <button class="btn btn-secondary btn-sm" id="btn-toggle-chat" title="Chat"></button>
+          <button class="btn btn-secondary btn-sm" id="btn-settings" title="Settings"></button>
           <span id="peer-count" class="peer-count">Waiting for peers...</span>
           <button class="theme-toggle" id="theme-toggle-room" title="Toggle dark mode" style="position:static;"></button>
           <div class="status" id="connection-status">
@@ -158,6 +159,29 @@
       <div class="modal-body">
         <textarea id="comment-input" rows="3" style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;outline:none;background:var(--card);color:var(--text);resize:vertical"></textarea>
         <button class="btn btn-primary btn-block" id="comment-confirm" style="margin-top:12px">Save Comment</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span class="modal-title">Settings</span>
+        <button class="btn btn-secondary btn-sm" id="settings-close">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-row">
+          <span>Theme</span>
+          <button class="btn btn-secondary btn-sm" id="settings-theme-toggle"></button>
+        </div>
+        <div class="setting-row">
+          <span>Room password</span>
+          <input type="password" id="settings-password" placeholder="Enter room password" style="flex:1;padding:6px 10px;border:2px solid var(--border);border-radius:6px;font-size:0.85rem;outline:none;background:var(--card);color:var(--text);" />
+        </div>
+        <div class="setting-row" style="margin-top:8px">
+          <span></span>
+          <button class="btn btn-primary btn-sm" id="settings-save-password">Save</button>
+        </div>
       </div>
     </div>
   </div>

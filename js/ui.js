@@ -54,6 +54,12 @@ export function cacheDOM() {
   el.folderInput = $('#folder-input');
   el.searchIcon = $('#search-icon');
   el.queueIcon = $('#queue-icon');
+  el.btnSettings = $('#btn-settings');
+  el.settingsModal = $('#settings-modal');
+  el.settingsClose = $('#settings-close');
+  el.settingsThemeToggle = $('#settings-theme-toggle');
+  el.settingsPassword = $('#settings-password');
+  el.settingsSavePassword = $('#settings-save-password');
 }
 
 export function showHome() {

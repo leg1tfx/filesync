@@ -1,4 +1,4 @@
-import { $, el, cacheDOM, renderFileList, showToast, closePreview, setupGlobalDrag, batchDelete, batchDownload, selectAll, updateBatchBar, updateQueueInfo, renderChatHistory } from './ui.js';
+import { $, el, cacheDOM, renderFileList, showToast, closePreview, setupGlobalDrag, batchDelete, batchDownload, selectAll, updateBatchBar, updateQueueInfo, renderChatHistory, renderPeerListPanel } from './ui.js';
 import { state, STORE } from './state.js';
 import { applyTheme, getPreferredTheme, toggleTheme, getShareLink, debounce, extIcon } from './utils.js';
 import { icon } from './icons.js';
@@ -9,6 +9,7 @@ cacheDOM();
 
 if (el.btnShowQr) el.btnShowQr.innerHTML = icon.camera;
 if (el.btnToggleChat) el.btnToggleChat.innerHTML = icon.messageCircle;
+if (el.btnSettings) el.btnSettings.innerHTML = icon.zap;
 if (el.searchIcon) el.searchIcon.innerHTML = icon.search;
 if (el.queueIcon) el.queueIcon.innerHTML = icon.clock;
 
@@ -135,6 +136,35 @@ el.peerCount.addEventListener('click', () => {
 if (el.btnClosePeerList) {
   el.btnClosePeerList.addEventListener('click', () => { el.peerListPanel.style.display = 'none'; });
 }
+
+el.btnSettings.addEventListener('click', () => {
+  el.settingsModal.classList.add('active');
+  el.settingsPassword.value = state.password || '';
+  updateSettingsThemeBtn();
+});
+
+function updateSettingsThemeBtn() {
+  const isDark = document.body.classList.contains('dark');
+  el.settingsThemeToggle.innerHTML = (isDark ? icon.sun : icon.moon) + ' <span>' + (isDark ? 'Light' : 'Dark') + '</span>';
+}
+
+el.settingsThemeToggle.addEventListener('click', () => {
+  toggleTheme();
+  updateSettingsThemeBtn();
+});
+
+el.settingsClose.addEventListener('click', () => {
+  el.settingsModal.classList.remove('active');
+});
+el.settingsModal.addEventListener('click', e => {
+  if (e.target === el.settingsModal) el.settingsModal.classList.remove('active');
+});
+
+el.settingsSavePassword.addEventListener('click', () => {
+  const pw = el.settingsPassword.value.trim();
+  state.password = pw || null;
+  showToast(pw ? 'Password saved' : 'Password cleared');
+});
 
 document.getElementById('btn-ocr').addEventListener('click', async () => {
   const { runOCR } = await import('./ui.js');

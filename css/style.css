@@ -325,6 +325,9 @@ body.dark .btn-success:hover { background: #064e3b; }
 .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
 .modal-body img { max-width: 100%; max-height: 80vh; display: block; margin: 0 auto; border-radius: 8px; }
 
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 8px 0; }
+.setting-row span { font-size: 0.9rem; font-weight: 500; }
+
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
   background: var(--text); color: var(--card); padding: 10px 20px; border-radius: 8px;
