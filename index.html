@@ -9,7 +9,7 @@
   <meta name="description" content="Peer-to-peer file sharing directly in your browser. No server, no account, no limits.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -24,68 +24,43 @@
       <header class="masthead">
         <div class="masthead__row">
           <span>Vol. 01</span>
-          <span>Established 2024</span>
           <span>Direct Transfer</span>
+          <button class="theme-toggle" id="theme-toggle-home" title="Toggle paper / night">
+            <span class="theme-toggle__dot"></span>
+            <span id="theme-label-home">Day</span>
+          </button>
         </div>
         <h1 class="masthead__title"><em>File</em>Sync</h1>
-        <p class="masthead__deck">A direct transfer protocol for files between browsers — serverless, accountless, unlimited in size. The first peer-to-peer file exchange that runs entirely in your tab.</p>
-        <div class="masthead__row" style="border-top:1px solid var(--border)">
-          <span>IndexedDB</span>
-          <span>WebRTC Mesh</span>
-          <span>Chunked</span>
-        </div>
+        <p class="masthead__deck">A direct transfer protocol for files between browsers — serverless, accountless, no size limits.</p>
       </header>
 
       <section class="actions-grid">
 
         <div>
-          <div class="section-label">
-            <span class="section-label__title">§ 01 — Begin a Transfer</span>
-            <span class="section-label__meta">Host a new room</span>
-          </div>
           <button class="btn btn--block btn--primary" id="btn-create">
             <span>Open a New Room</span>
             <span class="btn__arrow">→</span>
           </button>
         </div>
 
-        <div class="divider-words"><span>or</span></div>
+        <div class="divider-words"><span>or join an existing one</span></div>
 
-        <div>
-          <div class="section-label">
-            <span class="section-label__title">§ 02 — Join a Room</span>
-            <span class="section-label__meta">Enter a code</span>
+        <div class="join-form">
+          <div class="field">
+            <input type="text" id="input-room-code" placeholder="Room code" autocomplete="off" />
           </div>
-          <div class="join-form">
-            <div class="field">
-              <label class="field__label" for="input-room-code">Room Code</label>
-              <input type="text" id="input-room-code" placeholder="e.g. blue-tiger-42" autocomplete="off" />
-            </div>
-            <button class="btn" id="btn-join">Enter</button>
-          </div>
+          <button class="btn" id="btn-join">Enter</button>
         </div>
 
-        <div>
-          <div class="section-label">
-            <span class="section-label__title">§ 03 — Optional</span>
-            <span class="section-label__meta">Add a passphrase</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="input-room-password">Passphrase</label>
-            <input type="password" id="input-room-password" placeholder="Leave blank for an open room" autocomplete="off" />
-          </div>
+        <div class="field" style="margin-top:8px">
+          <input type="password" id="input-room-password" placeholder="Passphrase (optional)" autocomplete="off" />
         </div>
 
       </section>
 
       <footer class="colophon">
-        <span>Files remain in your browser</span>
-        <span>No server, no logs</span>
+        <span>No server · No account</span>
         <span>Open Source / MIT</span>
-        <button class="theme-toggle" id="theme-toggle-home" title="Toggle paper / night">
-          <span class="theme-toggle__dot"></span>
-          <span id="theme-label-home">Day</span>
-        </button>
       </footer>
     </div>
 
@@ -93,7 +68,6 @@
 
       <div class="room-meta">
         <div>
-          <div class="kicker">Room</div>
           <div class="room-meta__code" id="room-code-display"></div>
           <button class="room-meta__copy" id="btn-copy-code">
             <span>Copy Link</span>
@@ -107,11 +81,6 @@
           </div>
           <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-secondary)" id="peer-count">Waiting for peers</div>
         </div>
-      </div>
-
-      <div class="section-label">
-        <span class="section-label__title">§ Tools</span>
-        <span class="section-label__meta">Quick actions</span>
       </div>
 
       <div class="toolbar" style="margin-bottom:24px">
@@ -152,7 +121,7 @@
       </div>
 
       <div class="archive-header">
-        <span class="archive-header__title">§ Archive</span>
+        <span class="archive-header__title">Archive</span>
         <span class="archive-header__count"><strong id="archive-count">0</strong> items</span>
       </div>
 

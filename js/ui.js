@@ -253,15 +253,11 @@ export function renderFileList() {
     const elapsed = isUploading && state.speedStart ? (Date.now() - state.speedStart) / 1000 : 0;
     const speedStr = isUploading && elapsed > 0 ? fmtSpeed(state.speedBytes / elapsed) : '';
 
-    const indexLabel = String(idx + 1).padStart(2, '0');
-
     return `
       <div class="file-row ${isSelected ? 'selected' : ''}" data-id="${f.fileId}" draggable="true">
-        <span class="file-row__index">${indexLabel}${pinned ? ' ★' : ''}</span>
         <span class="file-row__icon">${extIcon(f.name)}</span>
         <div class="file-row__body">
           <div class="file-row__name" ondblclick="import('./peer.js').then(m=>m.requestRename('${f.fileId}'))" title="Double-click to rename">${escapeHtml(f.name)}</div>
-          ${f.comment ? '<div class="file-row__comment">' + escapeHtml(f.comment) + '</div>' : ''}
           <div class="file-row__meta">
             <span>${fmtTime(f.timestamp)}</span>
             ${badge}

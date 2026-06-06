@@ -31,19 +31,17 @@
   --warning: #8A5A1A;
   --warning-bg: #EFE0C2;
 
-  --serif: 'Fraunces', 'Newsreader', Georgia, 'Times New Roman', serif;
-  --body: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --body: 'Fraunces', Georgia, 'Times New Roman', serif;
   --mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
-  --sans: 'Newsreader', Georgia, serif;
+  --sans: 'Fraunces', Georgia, serif;
 
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --duration: 240ms;
-  --duration-slow: 480ms;
+  --duration: 200ms;
+  --duration-slow: 320ms;
 
-  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'ss01' 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
 }
 
 body.dark {
@@ -81,33 +79,9 @@ body {
   min-height: 100dvh;
   font-size: 17px;
   line-height: 1.55;
-  font-variation-settings: 'opsz' 16, 'SOFT' 30;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(1px 1px at 20% 30%, var(--text-tertiary) 50%, transparent 51%),
-    radial-gradient(1px 1px at 70% 60%, var(--text-tertiary) 50%, transparent 51%),
-    radial-gradient(1px 1px at 40% 80%, var(--text-tertiary) 50%, transparent 51%);
-  background-size: 220px 220px, 280px 280px, 340px 340px;
-  background-position: 0 0, 80px 40px, 40px 120px;
-  opacity: 0.18;
-  mix-blend-mode: multiply;
-}
-
-body.dark::before {
-  mix-blend-mode: screen;
-  opacity: 0.10;
 }
 
 #app {
-  position: relative;
-  z-index: 1;
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
@@ -722,14 +696,14 @@ body.dark .theme-toggle__dot {
 
 .file-row {
   display: grid;
-  grid-template-columns: 40px 28px 1fr auto auto;
-  gap: 16px;
+  grid-template-columns: 28px 1fr auto auto;
+  gap: 14px;
   align-items: center;
-  padding: 18px 0;
+  padding: 16px 0;
   border-bottom: 1px solid var(--border);
   transition: background var(--duration) var(--ease);
-  animation: rowIn var(--duration) var(--ease) both;
   position: relative;
+  contain: layout style;
 }
 
 .file-row:hover {
@@ -748,14 +722,6 @@ body.dark .theme-toggle__dot {
   bottom: 0;
   width: 2px;
   background: var(--accent);
-}
-
-.file-row__index {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
 }
 
 .file-row__icon {
@@ -788,20 +754,9 @@ body.dark .theme-toggle__dot {
   color: var(--accent);
 }
 
-.file-row__comment {
-  font-family: var(--serif);
-  font-size: 13px;
-  font-style: italic;
-  color: var(--text-secondary);
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .file-row__meta {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
   margin-top: 4px;
@@ -924,21 +879,9 @@ body.dark .theme-toggle__dot {
 }
 
 @keyframes rowIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-
-.file-row:nth-child(1) { animation-delay: 0s; }
-.file-row:nth-child(2) { animation-delay: 0.02s; }
-.file-row:nth-child(3) { animation-delay: 0.04s; }
-.file-row:nth-child(4) { animation-delay: 0.06s; }
-.file-row:nth-child(5) { animation-delay: 0.08s; }
-.file-row:nth-child(6) { animation-delay: 0.10s; }
-.file-row:nth-child(7) { animation-delay: 0.12s; }
-.file-row:nth-child(8) { animation-delay: 0.14s; }
-.file-row:nth-child(9) { animation-delay: 0.16s; }
-.file-row:nth-child(10) { animation-delay: 0.18s; }
-.file-row:nth-child(n+11) { animation-delay: 0.20s; }
 
 .empty-state {
   text-align: center;
@@ -1461,11 +1404,9 @@ body.dark .modal-overlay {
   .actions-grid { gap: 24px; margin-bottom: 40px; }
   .colophon { flex-direction: column; gap: 8px; align-items: flex-start; }
   .room-meta { grid-template-columns: 1fr; gap: 16px; }
-  .file-row { grid-template-columns: 28px 22px 1fr; gap: 12px; padding: 14px 0; }
+  .file-row { grid-template-columns: 24px 1fr auto; gap: 12px; padding: 14px 0; }
   .file-row__size { display: none; }
-  .file-row__actions { grid-column: 1 / -1; justify-content: flex-end; padding-left: 50px; padding-top: 6px; }
   .file-row.selected::before { left: -16px; width: 2px; }
-  .file-row__size { font-size: 11px; }
   .room-actions { flex-direction: column; }
   .side-panel { max-width: 100%; }
   .upload-zone { padding: 32px 16px; }
