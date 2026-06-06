@@ -26,12 +26,22 @@ export function extIcon(name) {
   const map = {
     pdf: '\u{1F4C4}', doc: '\u{1F4C4}', docx: '\u{1F4C4}',
     jpg: '\u{1F5BC}', jpeg: '\u{1F5BC}', png: '\u{1F5BC}', gif: '\u{1F5BC}', webp: '\u{1F5BC}',
-    mp4: '\u{1F3AC}', mov: '\u{1F3AC}', avi: '\u{1F3AC}',
-    mp3: '\u{1F3B5}', wav: '\u{1F3B5}', flac: '\u{1F3B5}',
-    zip: '\u{1F4E6}', rar: '\u{1F4E6}', '7z': '\u{1F4E6}',
-    txt: '\u{1F4DD}', md: '\u{1F4DD}',
+    mp4: '\u{1F3AC}', mov: '\u{1F3AC}', avi: '\u{1F3AC}', mkv: '\u{1F3AC}',
+    mp3: '\u{1F3B5}', wav: '\u{1F3B5}', flac: '\u{1F3B5}', ogg: '\u{1F3B5}',
+    zip: '\u{1F4E6}', rar: '\u{1F4E6}', '7z': '\u{1F4E6}', gz: '\u{1F4E6}',
+    txt: '\u{1F4DD}', md: '\u{1F4DD}', json: '\u{1F4DD}', xml: '\u{1F4DD}',
   };
   return map[ext] || '\u{1F4C1}';
+}
+
+export function getPreviewType(mime) {
+  if (!mime) return null;
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('audio/')) return 'audio';
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime.startsWith('text/')) return 'text';
+  return null;
 }
 
 export function getPreferredTheme() {
@@ -59,4 +69,9 @@ export function getShareLink() {
   const url = new URL(window.location);
   url.hash = state.roomCode;
   return url.toString();
+}
+
+export function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }

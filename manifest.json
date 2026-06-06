@@ -1,0 +1,18 @@
+{
+  "name": "FileSync",
+  "short_name": "FileSync",
+  "description": "Peer-to-peer file sharing directly in your browser. No server, no account, no limits.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#4f6ef7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

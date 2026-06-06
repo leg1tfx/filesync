@@ -1,6 +1,6 @@
-import { $, cacheDOM, el, renderFileList, showToast } from './ui.js';
+import { $, el, cacheDOM, renderFileList, showToast, closePreview, setupGlobalDrag, batchDelete, batchDownload, selectAll, updateBatchBar, updateQueueInfo } from './ui.js';
 import { state, STORE } from './state.js';
-import { applyTheme, getPreferredTheme, toggleTheme, getShareLink } from './utils.js';
+import { applyTheme, getPreferredTheme, toggleTheme, getShareLink, debounce } from './utils.js';
 import { openDB, dbGetAll } from './db.js';
 import { createRoom, joinRoom, uploadFiles, downloadAll, leaveRoom } from './peer.js';
 
@@ -19,6 +19,8 @@ try {
 }
 
 renderFileList();
+updateBatchBar();
+updateQueueInfo();
 
 const hash = window.location.hash.slice(1);
 if (hash) {
@@ -51,5 +53,19 @@ el.uploadZone.addEventListener('drop', e => {
 });
 
 el.btnDownloadAll.addEventListener('click', downloadAll);
-
 el.btnLeave.addEventListener('click', leaveRoom);
+
+el.searchInput.addEventListener('input', debounce(e => {
+  state.searchQuery = e.target.value;
+  renderFileList();
+}, 200));
+
+el.btnSelectAll.addEventListener('click', selectAll);
+el.btnBatchDelete.addEventListener('click', batchDelete);
+el.btnBatchDownload.addEventListener('click', batchDownload);
+
+el.previewClose.addEventListener('click', closePreview);
+el.previewModal.addEventListener('click', e => { if (e.target === el.previewModal) closePreview(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePreview(); });
+
+setupGlobalDrag();

@@ -1,7 +1,7 @@
 import { state, CHUNK_SIZE, STORE } from './state.js';
 import { genRoomCode, isFileProtocol } from './utils.js';
 import { dbPut, dbGet, dbGetAll } from './db.js';
-import { showHome, showRoom, setStatus, showToast, updateFileUI, renderFileList } from './ui.js';
+import { showHome, showRoom, setStatus, showToast, updateFileUI, renderFileList, renderPeerList } from './ui.js';
 
 export function createRoom() {
   if (isFileProtocol()) {
@@ -72,7 +72,7 @@ function initPeer(peerId) {
 
   state.peer.on('disconnected', () => {
     setStatus('disconnected', 'Disconnected');
-    scheduleReconnect();
+    if (!state.isCreator) scheduleReconnect();
   });
 }
 
@@ -88,15 +88,28 @@ function acceptConnection(conn) {
 
 function setupConnection(conn) {
   conn.on('open', () => {
-    state.conn = conn;
+    if (state.isCreator) {
+      const peerId = conn.peer;
+      state.conns.set(peerId, conn);
+      renderPeerList();
+      broadcastExcept(peerId, { type: 'peer-joined', peerId });
+      sendTo(conn, { type: 'peer-list', peers: Array.from(state.conns.keys()) });
+    } else {
+      state.conn = conn;
+    }
     setStatus('connected', 'Connected');
     clearTimeout(state.reconnectTimer);
-    conn.send(JSON.stringify({ type: 'sync-request' }));
+    if (state.isCreator) {
+      sendToAll({ type: 'peer-list', peers: Array.from(state.conns.keys()) });
+    } else {
+      send({ type: 'sync-request' });
+      processQueue();
+    }
   });
 
   conn.on('data', data => {
     if (typeof data === 'string') {
-      handleMessage(JSON.parse(data));
+      handleMessage(JSON.parse(data), conn);
     } else if (data instanceof ArrayBuffer) {
       handleChunk(new Uint8Array(data));
     } else if (data instanceof Blob) {
@@ -105,14 +118,25 @@ function setupConnection(conn) {
   });
 
   conn.on('close', () => {
-    state.conn = null;
+    if (state.isCreator) {
+      const peerId = conn.peer;
+      state.conns.delete(peerId);
+      renderPeerList();
+      broadcastExcept(peerId, { type: 'peer-left', peerId });
+    } else {
+      state.conn = null;
+    }
     setStatus('disconnected', 'Disconnected');
-    scheduleReconnect();
+    if (!state.isCreator) scheduleReconnect();
   });
 
-  conn.on('error', err => {
-    showToast('Connection error');
-    state.conn = null;
+  conn.on('error', () => {
+    if (state.isCreator) {
+      state.conns.delete(conn.peer);
+      renderPeerList();
+    } else {
+      state.conn = null;
+    }
     scheduleReconnect();
   });
 }
@@ -127,12 +151,12 @@ function scheduleReconnect() {
   }, 3000);
 }
 
-async function handleMessage(msg) {
+async function handleMessage(msg, conn) {
   switch (msg.type) {
     case 'sync-request': {
       const all = await dbGetAll(STORE);
       const files = all.map(f => ({ fileId: f.fileId, name: f.name, size: f.size, mime: f.mime, timestamp: f.timestamp }));
-      send({ type: 'sync-response', files });
+      sendTo(conn, { type: 'sync-response', files });
       break;
     }
     case 'sync-response': {
@@ -148,7 +172,8 @@ async function handleMessage(msg) {
     case 'sync-download': {
       const entry = await dbGet(STORE, msg.fileId);
       if (entry) {
-        await sendFile(entry);
+        const dest = conn || state.conn;
+        if (dest) await sendFile(entry, dest);
         await markSynced(msg.fileId);
       }
       break;
@@ -176,6 +201,28 @@ async function handleMessage(msg) {
     }
     case 'file-complete': {
       await assembleFile(msg.fileId);
+      const entry = state.files.get(msg.fileId);
+      if (state.isCreator && entry) {
+        const otherConns = Array.from(state.conns.entries()).filter(([id]) => id !== (conn ? conn.peer : ''));
+        for (const [, c] of otherConns) {
+          await sendFile({ ...entry, data: entry.data }, c);
+        }
+      }
+      break;
+    }
+    case 'peer-list': {
+      state.peerIds = msg.peers;
+      renderPeerList();
+      break;
+    }
+    case 'peer-joined': {
+      if (!state.peerIds.includes(msg.peerId)) state.peerIds.push(msg.peerId);
+      renderPeerList();
+      break;
+    }
+    case 'peer-left': {
+      state.peerIds = state.peerIds.filter(p => p !== msg.peerId);
+      renderPeerList();
       break;
     }
   }
@@ -184,6 +231,24 @@ async function handleMessage(msg) {
 function send(obj) {
   if (state.conn && state.conn.open) {
     state.conn.send(JSON.stringify(obj));
+  }
+}
+
+function sendTo(conn, obj) {
+  if (conn && conn.open) conn.send(JSON.stringify(obj));
+}
+
+function sendToAll(obj) {
+  const msg = JSON.stringify(obj);
+  for (const conn of state.conns.values()) {
+    if (conn.open) conn.send(msg);
+  }
+}
+
+function broadcastExcept(excludePeerId, obj) {
+  const msg = JSON.stringify(obj);
+  for (const [pid, conn] of state.conns) {
+    if (pid !== excludePeerId && conn.open) conn.send(msg);
   }
 }
 
@@ -202,29 +267,40 @@ function handleChunk(uint8) {
   updateFileUI(fileId, 'transfer', pct);
 }
 
-async function sendFile(fileData) {
+async function sendFile(fileData, dest, startFrom) {
   const blob = fileData.data;
   const totalChunks = Math.ceil(blob.size / CHUNK_SIZE) || 1;
+  const conn = dest || state.conn;
+  if (!conn || !conn.open) return;
 
   const localEntry = state.files.get(fileData.fileId);
   if (localEntry) {
     localEntry.uploading = true;
-    localEntry.uploadProgress = 0;
+    if (!startFrom) localEntry.uploadProgress = 0;
+  }
+
+  if (!startFrom) {
+    sendTo(conn, {
+      type: 'file-start',
+      fileId: fileData.fileId,
+      name: fileData.name,
+      size: fileData.size,
+      mime: fileData.mime,
+      timestamp: fileData.timestamp,
+      totalChunks,
+    });
   }
   renderFileList();
 
-  send({
-    type: 'file-start',
-    fileId: fileData.fileId,
-    name: fileData.name,
-    size: fileData.size,
-    mime: fileData.mime,
-    timestamp: fileData.timestamp,
-    totalChunks,
-  });
-
   const enc = new TextEncoder();
-  for (let i = 0; i < totalChunks; i++) {
+  for (let i = startFrom || 0; i < totalChunks; i++) {
+    if (state.paused.has(fileData.fileId)) {
+      state.resumeState[fileData.fileId] = { fileData, startChunk: i, dest: conn };
+      if (localEntry) { localEntry.paused = true; }
+      renderFileList();
+      return;
+    }
+
     const start = i * CHUNK_SIZE;
     const end = Math.min(start + CHUNK_SIZE, blob.size);
     const slice = await blob.slice(start, end).arrayBuffer();
@@ -238,9 +314,7 @@ async function sendFile(fileData) {
     view.setUint32(40, totalChunks, true);
     chunk.set(new Uint8Array(slice), 44);
 
-    if (state.conn && state.conn.open) {
-      state.conn.send(chunk.buffer);
-    }
+    if (conn.open) conn.send(chunk.buffer);
 
     const pct = Math.round((i + 1) / totalChunks * 100);
     if (localEntry) {
@@ -249,11 +323,39 @@ async function sendFile(fileData) {
     }
   }
 
-  send({ type: 'file-complete', fileId: fileData.fileId });
+  sendTo(conn, { type: 'file-complete', fileId: fileData.fileId });
 
   if (localEntry) {
     localEntry.uploading = false;
+    localEntry.paused = false;
     delete localEntry.uploadProgress;
+  }
+  renderFileList();
+}
+
+export function pauseTransfer(fileId) {
+  state.paused.add(fileId);
+  const entry = state.files.get(fileId);
+  if (entry) {
+    entry.paused = true;
+    renderFileList();
+  }
+}
+
+export async function resumeTransfer(fileId) {
+  state.paused.delete(fileId);
+  const rs = state.resumeState[fileId];
+  const entry = state.files.get(fileId);
+  if (entry) entry.paused = false;
+  delete state.resumeState[fileId];
+
+  if (rs) {
+    await sendFile(rs.fileData, rs.dest, rs.startChunk);
+    const idx = state.queue.findIndex(f => f.fileId === fileId);
+    if (idx !== -1) state.queue.splice(idx, 1);
+    await markSynced(fileId);
+  } else {
+    processQueue();
   }
   renderFileList();
 }
@@ -277,6 +379,9 @@ async function assembleFile(fileId) {
   delete state.incoming[fileId];
   renderFileList();
   showToast(`Received: ${entry.meta.name}`);
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('FileSync', { body: `Received: ${entry.meta.name}`, icon: '/favicon.ico' });
+  }
 }
 
 async function markSynced(fileId) {
@@ -301,12 +406,42 @@ export async function uploadFiles(fileList) {
     };
     await dbPut(STORE, fileData);
     state.files.set(fileId, fileData);
-
-    if (state.conn && state.conn.open) {
-      await sendFile(fileData);
-      await markSynced(fileId);
-    }
+    state.queue.push(fileData);
   }
+  renderFileList();
+  processQueue();
+}
+
+async function processQueue() {
+  if (state.queueActive || state.queue.length === 0) return;
+  state.queueActive = true;
+
+  while (state.queue.length > 0) {
+    const fileData = state.queue[0];
+    let completed = false;
+    if (state.conn && state.conn.open) {
+      await sendFile(fileData, state.conn);
+      if (!state.paused.has(fileData.fileId)) {
+        state.queue.shift();
+        await markSynced(fileData.fileId);
+        completed = true;
+      }
+    } else if (state.conns.size > 0) {
+      let allDone = true;
+      for (const conn of state.conns.values()) {
+        await sendFile(fileData, conn);
+        if (state.paused.has(fileData.fileId)) { allDone = false; break; }
+      }
+      if (allDone) {
+        state.queue.shift();
+        await markSynced(fileData.fileId);
+        completed = true;
+      }
+    }
+    if (!completed) break;
+  }
+
+  state.queueActive = false;
   renderFileList();
 }
 
@@ -328,13 +463,27 @@ export async function downloadAll() {
 
 export function leaveRoom() {
   if (state.conn) state.conn.close();
+  for (const conn of state.conns.values()) conn.close();
   if (state.peer) state.peer.destroy();
   state.peer = null;
   state.conn = null;
+  state.conns = new Map();
   state.roomCode = null;
   state.incoming = {};
+  state.queue = [];
+  state.queueActive = false;
+  state.paused = new Set();
+  state.resumeState = {};
+  state.selected = new Set();
+  state.peerIds = [];
   clearTimeout(state.reconnectTimer);
   history.replaceState(null, '', window.location.pathname);
   showHome();
   setStatus('disconnected', '');
+}
+
+export function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 }
