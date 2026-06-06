@@ -382,6 +382,10 @@
       el.toast._t = setTimeout(() => el.toast.classList.remove('show'), duration || 2500);
     }
 
+    function isFileProtocol() {
+      return window.location.protocol === 'file:';
+    }
+
     function getShareLink() {
       const url = new URL(window.location);
       url.hash = state.roomCode;
@@ -440,8 +444,13 @@
 
     // PeerJS & Connection
     function createRoom() {
+      if (isFileProtocol()) {
+        showToast('Open via HTTP (GitHub Pages) - file:// blocks WebRTC');
+        return;
+      }
       state.roomCode = genRoomCode();
       state.isCreator = true;
+      showRoom();
       setStatus('connecting', 'Creating room...');
       initPeer(`fs-${state.roomCode}`);
     }
@@ -449,8 +458,13 @@
     function joinRoom(code) {
       code = code.trim().toLowerCase();
       if (!code) { showToast('Enter a room code'); return; }
+      if (isFileProtocol()) {
+        showToast('Open via HTTP (GitHub Pages) - file:// blocks WebRTC');
+        return;
+      }
       state.roomCode = code;
       state.isCreator = false;
+      showRoom();
       setStatus('connecting', 'Joining room...');
       initPeer(null);
     }
@@ -466,7 +480,6 @@
       });
 
       state.peer.on('open', id => {
-        showRoom();
         if (!state.isCreator) {
           connectToPeer(`fs-${state.roomCode}`);
         }
@@ -490,7 +503,10 @@
           scheduleReconnect();
         } else {
           setStatus('error', 'Connection error');
-          showToast('Connection error: ' + err.message);
+          const msg = isFileProtocol()
+            ? 'file:// blocks WebRTC. Host the page on GitHub Pages or use "npx serve ."'
+            : 'Connection error: ' + err.message;
+          showToast(msg);
         }
       });
 
