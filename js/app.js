@@ -16,8 +16,8 @@ if (el.queueIcon) el.queueIcon.innerHTML = icon.clock;
 applyTheme(getPreferredTheme());
 updateThemeLabels();
 window.addEventListener('filesync:theme', () => { updateThemeLabels(); updateSettingsThemeBtn(); });
-$('#theme-toggle-home').addEventListener('click', toggleTheme);
-$('#theme-toggle-room').addEventListener('click', toggleTheme);
+const themeHome = document.getElementById('theme-toggle-home');
+if (themeHome) themeHome.addEventListener('click', toggleTheme);
 
 try {
   state.db = await openDB();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FileSync — A direct transfer protocol</title>
+  <title>FileSync — Direct browser-to-browser file transfer</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#F2EBDD">
   <meta name="description" content="Peer-to-peer file sharing directly in your browser. No server, no account, no limits.">
@@ -22,16 +22,8 @@
     <div id="screen-home" class="screen active">
 
       <header class="masthead">
-        <div class="masthead__row">
-          <span>Vol. 01</span>
-          <span>Direct Transfer</span>
-          <button class="theme-toggle" id="theme-toggle-home" title="Toggle paper / night">
-            <span class="theme-toggle__dot"></span>
-            <span id="theme-label-home">Day</span>
-          </button>
-        </div>
         <h1 class="masthead__title"><em>File</em>Sync</h1>
-        <p class="masthead__deck">A direct transfer protocol for files between browsers — serverless, accountless, no size limits.</p>
+        <p class="masthead__deck">Direct browser-to-browser file transfer — no server, no account, no limits.</p>
       </header>
 
       <section class="actions-grid">
@@ -43,7 +35,7 @@
           </button>
         </div>
 
-        <div class="divider-words"><span>or join an existing one</span></div>
+        <div class="divider-words"><span>or join a room</span></div>
 
         <div class="join-form">
           <div class="field">
@@ -52,7 +44,7 @@
           <button class="btn" id="btn-join">Enter</button>
         </div>
 
-        <div class="field" style="margin-top:8px">
+        <div class="field">
           <input type="password" id="input-room-password" placeholder="Passphrase (optional)" autocomplete="off" />
         </div>
 
@@ -60,7 +52,13 @@
 
       <footer class="colophon">
         <span>No server · No account</span>
-        <span>Open Source / MIT</span>
+        <span>
+          <button class="theme-toggle" id="theme-toggle-home" style="font-size:9px;padding:3px 6px;border-color:var(--border);color:var(--text-tertiary)">
+            <span class="theme-toggle__dot"></span>
+            <span id="theme-label-home">Day</span>
+          </button>
+          <span style="margin-left:12px">Open Source / MIT</span>
+        </span>
       </footer>
     </div>
 
@@ -74,23 +72,19 @@
             <span style="font-family:var(--serif);font-style:italic">↗</span>
           </button>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
           <div class="status">
             <span class="dot" id="status-dot"></span>
             <span id="status-text">Initializing</span>
           </div>
-          <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-secondary)" id="peer-count">Waiting for peers</div>
+          <div class="kicker" id="peer-count">Waiting for peers</div>
         </div>
       </div>
 
-      <div class="toolbar" style="margin-bottom:24px">
-        <button class="btn btn--sm btn--ghost" id="btn-show-qr">QR Code</button>
+      <div class="toolbar">
+        <button class="btn btn--sm btn--ghost" id="btn-show-qr">QR</button>
         <button class="btn btn--sm btn--ghost" id="btn-toggle-chat">Chat</button>
         <button class="btn btn--sm btn--ghost" id="btn-settings">Settings</button>
-        <button class="theme-toggle" id="theme-toggle-room" style="margin-left:auto">
-          <span class="theme-toggle__dot"></span>
-          <span id="theme-label-room">Day</span>
-        </button>
       </div>
 
       <div id="qr-panel" class="qr-panel" style="display:none">
@@ -125,10 +119,10 @@
         <span class="archive-header__count"><strong id="archive-count">0</strong> items</span>
       </div>
 
-      <div class="toolbar" style="margin-top:16px;margin-bottom:8px">
+      <div class="toolbar">
         <div class="search">
           <span class="search__icon" id="search-icon"></span>
-          <input type="text" id="search-input" placeholder="Search the archive…" autocomplete="off" />
+          <input type="text" id="search-input" placeholder="Search archive…" autocomplete="off" />
         </div>
         <div class="toolbar-actions">
           <button class="btn btn--sm btn--ghost" id="btn-select-all">Select All</button>
@@ -163,7 +157,7 @@
 
   <div id="chat-panel" class="side-panel">
     <div class="side-panel__header">
-      <span class="side-panel__title">§ Chat</span>
+      <span class="side-panel__title">Chat</span>
       <button class="btn btn--sm btn--ghost" id="btn-close-chat">Close</button>
     </div>
     <div class="chat">
@@ -179,7 +173,7 @@
 
   <div id="peer-list-panel" class="side-panel">
     <div class="side-panel__header">
-      <span class="side-panel__title">§ Peers</span>
+      <span class="side-panel__title">Peers</span>
       <button class="btn btn--sm btn--ghost" id="btn-close-peer-list">Close</button>
     </div>
     <div class="side-panel__body">
@@ -190,10 +184,7 @@
   <div id="preview-modal" class="modal-overlay">
     <div class="modal">
       <div class="modal__header">
-        <div class="modal__title">
-          <span class="modal__title-kicker">§ Preview</span>
-          <span class="modal__title-main" id="preview-title">File</span>
-        </div>
+        <span class="modal__title" id="preview-title">Preview</span>
         <button class="btn btn--sm btn--ghost" id="preview-close">Close</button>
       </div>
       <div class="modal__body" id="preview-content"></div>
@@ -203,10 +194,7 @@
   <div id="rename-modal" class="modal-overlay">
     <div class="modal modal--xs">
       <div class="modal__header">
-        <div class="modal__title">
-          <span class="modal__title-kicker">§ Rename</span>
-          <span class="modal__title-main">Edit Filename</span>
-        </div>
+        <span class="modal__title">Rename</span>
         <button class="btn btn--sm btn--ghost" id="rename-close">Cancel</button>
       </div>
       <div class="modal__body">
@@ -214,7 +202,7 @@
           <label class="field__label" for="rename-input">New name</label>
           <input type="text" id="rename-input" autocomplete="off" />
         </div>
-        <button class="btn btn--block btn--primary" id="rename-confirm" style="margin-top:16px">
+        <button class="btn btn--block btn--primary" id="rename-confirm">
           <span>Save</span>
           <span class="btn__arrow">→</span>
         </button>
@@ -225,10 +213,7 @@
   <div id="comment-modal" class="modal-overlay">
     <div class="modal modal--xs">
       <div class="modal__header">
-        <div class="modal__title">
-          <span class="modal__title-kicker">§ Comment</span>
-          <span class="modal__title-main">Add a Note</span>
-        </div>
+        <span class="modal__title">Comment</span>
         <button class="btn btn--sm btn--ghost" id="comment-close">Cancel</button>
       </div>
       <div class="modal__body">
@@ -236,7 +221,7 @@
           <label class="field__label" for="comment-input">Note</label>
           <textarea id="comment-input" rows="3" placeholder="Optional annotation, visible to all peers…"></textarea>
         </div>
-        <button class="btn btn--block btn--primary" id="comment-confirm" style="margin-top:16px">
+        <button class="btn btn--block btn--primary" id="comment-confirm">
           <span>Save Note</span>
           <span class="btn__arrow">→</span>
         </button>
@@ -247,10 +232,7 @@
   <div id="settings-modal" class="modal-overlay">
     <div class="modal modal--sm">
       <div class="modal__header">
-        <div class="modal__title">
-          <span class="modal__title-kicker">§ Settings</span>
-          <span class="modal__title-main">Room Preferences</span>
-        </div>
+        <span class="modal__title">Settings</span>
         <button class="btn btn--sm btn--ghost" id="settings-close">Close</button>
       </div>
       <div class="modal__body">
@@ -272,12 +254,12 @@
             <div class="setting-row__hint">XOR-obfuscated room key</div>
           </div>
           <div class="setting-row__control">
-            <div class="field" style="min-width:180px">
+            <div class="field">
               <input type="password" id="settings-password" placeholder="Enter passphrase" autocomplete="off" />
             </div>
           </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
           <button class="btn btn--sm btn--primary" id="settings-save-password">Save Passphrase</button>
         </div>
       </div>
@@ -287,14 +269,11 @@
   <div id="self-destruct-modal" class="modal-overlay">
     <div class="modal modal--xs">
       <div class="modal__header">
-        <div class="modal__title">
-          <span class="modal__title-kicker">§ Self-Destruct</span>
-          <span class="modal__title-main">Set Expiration</span>
-        </div>
+        <span class="modal__title">Expiration</span>
         <button class="btn btn--sm btn--ghost" id="sd-close">Cancel</button>
       </div>
       <div class="modal__body">
-        <p style="font-family:var(--serif);font-size:15px;color:var(--text-secondary);font-style:italic;margin-bottom:8px">The file will be removed from all peers after the selected time.</p>
+        <p class="kicker" style="font-style:italic;color:var(--text-secondary);margin-bottom:12px;font-family:var(--serif);letter-spacing:0;text-transform:none;font-size:14px">The file will be removed from all peers after the selected time.</p>
         <div class="option-list" id="sd-options"></div>
       </div>
     </div>
