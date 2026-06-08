@@ -1,15 +1,26 @@
 import { state, CHUNK_SIZE, STORE } from './state.js';
 import { genRoomCode, isFileProtocol, getShareLink, escapeHtml, simpleEncrypt, simpleDecrypt } from './utils.js';
 import { dbPut, dbGet, dbGetAll, dbGetAllKeys, dbDelete } from './db.js';
-import { showHome, showRoom, setStatus, showToast, updateFileUI, renderFileList, renderPeerList, renderChatMessage, renderPeerListPanel } from './ui.js';
+import { showHome, showRoom, setStatus, showToast, updateFileUI, renderFileList, renderPeerList, renderChatMessage, renderPeerListPanel, updateArchiveCount } from './ui.js';
 
 const MAX_RETRIES = 3;
 
-export function createRoom() {
+async function clearStorage() {
+  if (!state.db) return;
+  const keys = await dbGetAllKeys(STORE);
+  for (const key of keys) await dbDelete(STORE, key);
+  state.files.clear();
+  state.queue = [];
+  state.queueActive = false;
+  renderFileList();
+}
+
+export async function createRoom() {
   if (isFileProtocol()) {
     showToast('Open via HTTP (GitHub Pages) - file:// blocks WebRTC');
     return;
   }
+  await clearStorage();
   state.roomCode = genRoomCode();
   state.isCreator = true;
   const pw = document.getElementById('input-room-password');
@@ -26,13 +37,14 @@ function autoCopyLink() {
   navigator.clipboard.writeText(link).then(() => showToast('Room created! Link copied to clipboard')).catch(() => {});
 }
 
-export function joinRoom(code) {
+export async function joinRoom(code) {
   code = code.trim().toLowerCase();
   if (!code) { showToast('Enter a room code'); return; }
   if (isFileProtocol()) {
     showToast('Open via HTTP (GitHub Pages) - file:// blocks WebRTC');
     return;
   }
+  await clearStorage();
   state.roomCode = code;
   state.isCreator = false;
   const params = new URLSearchParams(window.location.search);
@@ -115,6 +127,8 @@ function setupConnection(conn) {
     }
     setStatus('connected', 'Connected');
     clearTimeout(state.reconnectTimer);
+    requeueUnsynced();
+    processQueue();
     if (state.isCreator) {
       sendToAll({ type: 'peer-list', peers: Array.from(state.conns.keys()) });
     } else {
@@ -563,6 +577,11 @@ export async function uploadFiles(fileList) {
 }
 
 async function processQueue() {
+  if (!state.conn && state.conns.size === 0) {
+    state.queue = [];
+    renderFileList();
+    return;
+  }
   if (state.queueActive || state.queue.length === 0) return;
   state.queueActive = true;
 
@@ -593,6 +612,14 @@ async function processQueue() {
 
   state.queueActive = false;
   renderFileList();
+}
+
+function requeueUnsynced() {
+  for (const [id, f] of state.files) {
+    if (!f.synced && !state.queue.some(q => q.fileId === id)) {
+      state.queue.push(f);
+    }
+  }
 }
 
 export async function downloadAll() {
